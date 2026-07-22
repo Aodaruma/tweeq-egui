@@ -1,16 +1,68 @@
+use std::collections::HashMap;
+
+use tweeq_core::{
+    EditEvent, EditOperation, EditSessionId, ParamId, ParamKind, ParamSnapshot, ParamValue,
+    Selection, TweakGesture,
+};
+
 use crate::TweeqTheme;
+
+#[derive(Debug, Clone)]
+pub(crate) struct NumberState {
+    pub editing: bool,
+    pub invalid: bool,
+    pub buffer: String,
+    pub captured: f64,
+    pub gesture: TweakGesture,
+    pub last_drag_total: egui::Vec2,
+    pub session: Option<EditSessionId>,
+    pub virtual_position: Option<egui::Pos2>,
+}
+
+impl NumberState {
+    pub fn new(value: f64, buffer: String) -> Self {
+        Self {
+            editing: false,
+            invalid: false,
+            buffer,
+            captured: value,
+            gesture: TweakGesture::default(),
+            last_drag_total: egui::Vec2::ZERO,
+            session: None,
+            virtual_position: None,
+        }
+    }
+}
 
 /// App-owned Tweeq state shared by widgets.
 #[derive(Debug, Clone)]
 pub struct TweeqContext {
     theme: TweeqTheme,
+    selection: Selection,
+    known_kinds: HashMap<ParamId, ParamKind>,
+    known_values: HashMap<ParamId, ParamValue>,
+    current_order: Vec<ParamId>,
+    previous_order: Vec<ParamId>,
+    number_states: HashMap<ParamId, NumberState>,
+    events: Vec<EditEvent>,
+    next_session: u64,
 }
 
 impl TweeqContext {
     /// Creates a context using the given theme.
     #[must_use]
-    pub const fn new(theme: TweeqTheme) -> Self {
-        Self { theme }
+    pub fn new(theme: TweeqTheme) -> Self {
+        Self {
+            theme,
+            selection: Selection::default(),
+            known_kinds: HashMap::new(),
+            known_values: HashMap::new(),
+            current_order: Vec::new(),
+            previous_order: Vec::new(),
+            number_states: HashMap::new(),
+            events: Vec::new(),
+            next_session: 1,
+        }
     }
 
     /// Returns the active theme.
@@ -22,6 +74,111 @@ impl TweeqContext {
     /// Replaces the active theme.
     pub fn set_theme(&mut self, theme: TweeqTheme) {
         self.theme = theme;
+    }
+
+    /// Starts registration for a new egui frame.
+    pub fn begin_frame(&mut self) {
+        self.previous_order = std::mem::take(&mut self.current_order);
+    }
+
+    /// Drains edit events emitted since the previous call.
+    pub fn drain_events(&mut self) -> impl Iterator<Item = EditEvent> + '_ {
+        self.events.drain(..)
+    }
+
+    /// Returns whether a parameter is part of the current selection.
+    #[must_use]
+    pub fn is_selected(&self, id: ParamId) -> bool {
+        self.selection.contains(id)
+    }
+
+    pub(crate) fn register(&mut self, id: ParamId, kind: ParamKind) {
+        self.known_kinds.insert(id, kind);
+        if !self.current_order.contains(&id) {
+            self.current_order.push(id);
+        }
+    }
+
+    pub(crate) fn register_number(&mut self, id: ParamId, value: f64) {
+        self.register(id, ParamKind::Number);
+        self.known_values.insert(id, ParamValue::Number(value));
+    }
+
+    pub(crate) fn activate_selection(
+        &mut self,
+        id: ParamId,
+        kind: ParamKind,
+        shift: bool,
+        command: bool,
+    ) {
+        self.register(id, kind);
+        if shift {
+            let order = if self.previous_order.contains(&id) {
+                &self.previous_order
+            } else {
+                &self.current_order
+            };
+            self.selection.select_range(order, id);
+        } else if command {
+            self.selection.toggle(id);
+        } else if !self.selection.contains(id) {
+            self.selection.select_only(id);
+        }
+    }
+
+    pub(crate) fn start_edit(&mut self, source: ParamId, kind: ParamKind) -> EditSessionId {
+        let session = EditSessionId::from_u64(self.next_session);
+        self.next_session = self.next_session.wrapping_add(1).max(1);
+        let mut target_ids: Vec<_> = self
+            .selection
+            .iter()
+            .filter(|id| self.known_kinds.get(id) == Some(&kind))
+            .collect();
+        if !target_ids.contains(&source) {
+            target_ids.push(source);
+        }
+        let targets = target_ids
+            .into_iter()
+            .filter_map(|id| {
+                self.known_values
+                    .get(&id)
+                    .cloned()
+                    .map(|value| ParamSnapshot { id, value })
+            })
+            .collect();
+        self.events.push(EditEvent::Begin {
+            session,
+            source,
+            targets,
+        });
+        session
+    }
+
+    pub(crate) fn update_edit(&mut self, session: EditSessionId, operation: EditOperation) {
+        self.events.push(EditEvent::Update { session, operation });
+    }
+
+    pub(crate) fn finish_edit(&mut self, session: EditSessionId, commit: bool) {
+        self.events.push(if commit {
+            EditEvent::Commit { session }
+        } else {
+            EditEvent::Cancel { session }
+        });
+    }
+
+    pub(crate) fn take_number_state(
+        &mut self,
+        id: ParamId,
+        value: f64,
+        buffer: String,
+    ) -> NumberState {
+        self.number_states
+            .remove(&id)
+            .unwrap_or_else(|| NumberState::new(value, buffer))
+    }
+
+    pub(crate) fn put_number_state(&mut self, id: ParamId, state: NumberState) {
+        self.number_states.insert(id, state);
     }
 }
 

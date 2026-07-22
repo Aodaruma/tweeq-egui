@@ -93,6 +93,11 @@ widget ── interaction ──► TweeqContext
 pub struct ParamId(/* stable application-owned key */);
 pub struct EditSessionId(/* unique within a TweeqContext */);
 
+pub struct ParamSnapshot {
+    pub id: ParamId,
+    pub value: ParamValue,
+}
+
 pub enum EditOperation {
     SetNumber(f64),
     AddNumber(f64),
@@ -107,7 +112,7 @@ pub enum EditEvent {
     Begin {
         session: EditSessionId,
         source: ParamId,
-        targets: Vec<ParamId>,
+        targets: Vec<ParamSnapshot>,
     },
     Update {
         session: EditSessionId,
@@ -118,9 +123,10 @@ pub enum EditEvent {
 }
 ```
 
-`Begin`時にホスト側が対象値をcaptureし、`Update`はcapture値を基準に適用します。
+`Begin`は対象値の型付きsnapshotを含み、`Update`はそのsnapshotを基準に適用します。
 これにより、加算操作で毎フレーム誤差が蓄積することを防ぎ、`Cancel`では開始値へ
-確実に戻せます。
+確実に戻せます。また、直接バインドしたsource値がUIフレーム内で先に変化しても、
+描画後にイベントを処理するホストが開始値を失いません。
 
 イベントをeguiのレイアウト完了後に適用するホストでもdrag表示が一frame遅れないよう、
 active sessionのpreview値は`TweeqContext`にも保持します。ホストへ`Update`を返したら

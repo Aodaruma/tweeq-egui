@@ -8,8 +8,12 @@
 - **P3**: 高度な入力、レイアウト、補助UI
 - **P4**: アプリ統合。互換APIではなく置換手段を提供してよい
 
-すべて現在は未着手です。進捗は`未着手`、`設計中`、`実装中`、`検証中`、`完了`
-のいずれかで更新します。
+進捗は`未着手`、`設計中`、`実装中`、`検証中`、`完了`のいずれかで更新します。
+
+Phase 2時点では`validator.ts`、`useDrag.ts`、`stores/multiSelect.ts`、
+`InputTextBase`、`TweakOverlay`、theme/contextの基盤と`InputNumber`を実装済みです。
+OS別Pointer Lockと同時編集の複合UI検証を残すため、基盤行の最終的な`完了`判定は
+Phase 5で行います。
 
 ## 基盤
 
