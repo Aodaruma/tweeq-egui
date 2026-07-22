@@ -1,3 +1,10 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss
+)]
+
 use egui::{Color32, CornerRadius, Response, Sense, Stroke, StrokeKind, Ui, Vec2};
 use tweeq_core::{EditOperation, ParamId, ParamKind};
 
@@ -60,12 +67,12 @@ impl<'a> Radio<'a> {
         let before = self.value.clone();
 
         if self.enabled && !self.options.is_empty() {
-            if response.clicked() || response.dragged() {
-                if let Some(pointer) = ui.input(|input| input.pointer.interact_pos()) {
-                    let index = option_at_x(rect, pointer.x, self.options.len());
-                    self.options[index].clone_into(self.value);
-                    response.request_focus();
-                }
+            if (response.clicked() || response.dragged())
+                && let Some(pointer) = ui.input(|input| input.pointer.interact_pos())
+            {
+                let index = option_at_x(rect, pointer.x, self.options.len());
+                self.options[index].clone_into(self.value);
+                response.request_focus();
             }
             if response.has_focus() {
                 let previous = ui.input(|input| {
@@ -173,15 +180,14 @@ impl<'a> Dropdown<'a> {
                     _ => None,
                 })
             });
-            if let Some(prefix) = typed {
-                if let Some(option) = self
+            if let Some(prefix) = typed
+                && let Some(option) = self
                     .options
                     .iter()
                     .find(|option| option.to_lowercase().starts_with(&prefix.to_lowercase()))
-                {
-                    self.value.clear();
-                    self.value.push_str(option);
-                }
+            {
+                self.value.clear();
+                self.value.push_str(option);
             }
         }
 
@@ -274,6 +280,7 @@ impl<'a> Drum<'a> {
         self
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn show(self, ui: &mut Ui, context: &mut TweeqContext) -> Response {
         context.register_string(self.id, self.value);
         let theme = context.theme().clone();
@@ -405,6 +412,7 @@ impl<'a> Drum<'a> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn paint_radio(
     ui: &Ui,
     rect: egui::Rect,

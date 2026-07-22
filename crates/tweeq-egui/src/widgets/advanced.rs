@@ -274,7 +274,11 @@ fn drag_handle(
             let before = [value[0], value[1]];
             value[0] = (value[0] + direction[0] * step * multiplier).clamp(0.0, 1.0);
             value[1] = (value[1] + direction[1] * step * multiplier).clamp(0.0, 1.0);
-            if [value[0], value[1]] != before {
+            if [value[0], value[1]]
+                .into_iter()
+                .zip(before)
+                .any(|(current, previous)| (current - previous).abs() > f64::EPSILON)
+            {
                 context.immediate_edit(
                     id,
                     ParamKind::Vector,
@@ -440,7 +444,7 @@ mod tests {
     #[test]
     fn bezier_quantization_stays_in_unit_square() {
         assert!((quantize_bezier(0.26, 0.1) - 0.3).abs() < 1.0e-12);
-        assert_eq!(quantize_bezier(2.0, 0.1), 1.0);
+        assert!((quantize_bezier(2.0, 0.1) - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]

@@ -1,3 +1,9 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss
+)]
+
 use egui::{
     Color32, CornerRadius, FontFamily, FontId, Key, LayerId, Order, Pos2, Response, Sense, Stroke,
     StrokeKind, Ui, Vec2, ViewportCommand,
@@ -80,7 +86,10 @@ impl<'a> Rotary<'a> {
         if self.enabled && response.drag_started() {
             context.activate_selection(self.id, ParamKind::Number, shift, command);
             response.request_focus();
-            let pointer = response.interact_pointer_pos().unwrap_or(rect.center());
+            let pointer = ui
+                .input(|input| input.pointer.press_origin())
+                .or_else(|| response.interact_pointer_pos())
+                .unwrap_or(rect.center());
             state.captured = *self.value;
             state.local = *self.value;
             state.origin = pointer;
@@ -346,11 +355,11 @@ fn paint_angle_label(
     painter: &egui::Painter,
     theme: &crate::TweeqTheme,
     origin: Pos2,
-    pointer: Pos2,
+    cursor_pos: Pos2,
     value: f64,
 ) {
     let bounds = ui.ctx().content_rect().shrink(40.0);
-    let position = clamp_along_ray(origin, pointer, bounds);
+    let position = clamp_along_ray(origin, cursor_pos, bounds);
     let text = display_angle(value);
     let font = FontId::new(13.0, FontFamily::Monospace);
     let galley = painter.layout_no_wrap(text, font, theme.text);
@@ -365,7 +374,7 @@ fn paint_angle_label(
     );
     painter.galley(position - galley.size() * 0.5, galley, theme.text);
 
-    let drag_direction = (pointer - origin).normalized();
+    let drag_direction = (cursor_pos - origin).normalized();
     if drag_direction != Vec2::ZERO {
         let normal = Vec2::new(-drag_direction.y, drag_direction.x);
         let left = position - drag_direction * (label_size.x * 0.5 + 6.0);
@@ -464,7 +473,7 @@ pub struct Angle<'a> {
     id: ParamId,
     value: &'a mut f64,
     snap: f64,
-    angle_offset: f64,
+    offset: f64,
     enabled: bool,
     invalid: bool,
 }
@@ -475,7 +484,7 @@ impl<'a> Angle<'a> {
             id,
             value,
             snap: 45.0,
-            angle_offset: -90.0,
+            offset: -90.0,
             enabled: true,
             invalid: false,
         }
@@ -489,7 +498,7 @@ impl<'a> Angle<'a> {
 
     #[must_use]
     pub fn angle_offset(mut self, angle_offset: f64) -> Self {
-        self.angle_offset = angle_offset;
+        self.offset = angle_offset;
         self
     }
 
@@ -509,7 +518,7 @@ impl<'a> Angle<'a> {
         ui.horizontal(|ui| {
             let rotary = Rotary::new(self.id, self.value)
                 .snap(self.snap)
-                .angle_offset(self.angle_offset)
+                .angle_offset(self.offset)
                 .enabled(self.enabled)
                 .invalid(self.invalid)
                 .show(ui, context);

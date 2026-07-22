@@ -1,3 +1,5 @@
+#![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+
 use egui::{
     Align2, Color32, CornerRadius, CursorGrab, FontId, Key, LayerId, Order, Pos2, Rect, Response,
     Sense, Stroke, StrokeKind, Ui, Vec2, ViewportCommand,
@@ -72,6 +74,7 @@ impl<'a> Position<'a> {
         self
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn show(self, ui: &mut Ui, context: &mut TweeqContext) -> Response {
         let Self {
             id,
@@ -188,6 +191,7 @@ impl<'a> Translate<'a> {
         self
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn show(self, ui: &mut Ui, context: &mut TweeqContext) -> Response {
         context.register_vector(self.id, *self.value);
         let theme = context.theme().clone();
@@ -276,7 +280,12 @@ impl<'a> Translate<'a> {
                 self.value[0] += direction[0] * self.step * speed;
                 self.value[1] += direction[1] * self.step * speed;
                 clamp_vector(self.value, self.minimum, self.maximum);
-                if *self.value != before {
+                if self
+                    .value
+                    .iter()
+                    .zip(before)
+                    .any(|(current, previous)| (current - previous).abs() > f64::EPSILON)
+                {
                     context.immediate_edit(
                         self.id,
                         ParamKind::Vector,
@@ -674,7 +683,7 @@ fn paint_translate_overlay(
     }
 
     if show_label {
-        let precision = if speed < 1.0 { 1 } else { 0 };
+        let precision = usize::from(speed < 1.0);
         let label = format!(
             "X  {:.*}    Y  {:.*}",
             precision, value[0], precision, value[1]
@@ -734,6 +743,7 @@ mod tests {
     fn translate_range_is_applied_per_axis() {
         let mut value = [-4.0, 12.0];
         clamp_vector(&mut value, Some([-2.0, -1.0]), Some([8.0, 9.0]));
-        assert_eq!(value, [-2.0, 9.0]);
+        assert!((value[0] + 2.0).abs() < f64::EPSILON);
+        assert!((value[1] - 9.0).abs() < f64::EPSILON);
     }
 }

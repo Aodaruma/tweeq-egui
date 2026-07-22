@@ -268,15 +268,15 @@ impl<'a> Number<'a> {
             state.drag_base = *self.value;
             state.gesture.reset();
             state.last_drag_total = Vec2::ZERO;
-            state.virtual_position = response.interact_pointer_pos();
+            let press_origin = ui
+                .input(|input| input.pointer.press_origin())
+                .or_else(|| response.interact_pointer_pos());
+            state.virtual_position = press_origin;
             state.session = Some(context.start_edit(self.id, ParamKind::Number));
             if self.bar_visible()
                 && self.value_inside_range(*self.value)
-                && let (Some(position), Some(minimum), Some(maximum)) = (
-                    response.interact_pointer_pos(),
-                    self.constraints.min,
-                    self.constraints.max,
-                )
+                && let (Some(position), Some(minimum), Some(maximum)) =
+                    (press_origin, self.constraints.min, self.constraints.max)
             {
                 let fraction = ((position.x - rect.left()) / rect.width()).clamp(0.0, 1.0);
                 state.drag_base = f64::from(fraction).mul_add(maximum - minimum, minimum);
@@ -595,6 +595,7 @@ struct NumberPaintState {
 }
 
 #[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::too_many_lines)]
 fn paint_number_background(
     ui: &Ui,
     theme: &crate::TweeqTheme,
@@ -861,15 +862,19 @@ mod tests {
     #[test]
     fn focused_arrow_modifiers_match_vue_semantics() {
         let unstepped = NumberConstraints::default();
-        assert_eq!(arrow_increment(unstepped, 10.0, false, false), 1.0);
-        assert_eq!(arrow_increment(unstepped, 10.0, true, false), 10.0);
-        assert_eq!(arrow_increment(unstepped, 10.0, false, true), 0.1);
+        assert!(close(arrow_increment(unstepped, 10.0, false, false), 1.0));
+        assert!(close(arrow_increment(unstepped, 10.0, true, false), 10.0));
+        assert!(close(arrow_increment(unstepped, 10.0, false, true), 0.1));
 
         let stepped = NumberConstraints {
             step: Some(0.25),
             ..NumberConstraints::default()
         };
-        assert_eq!(arrow_increment(stepped, 10.0, false, true), 0.25);
-        assert_eq!(arrow_increment(stepped, 10.0, true, false), 2.5);
+        assert!(close(arrow_increment(stepped, 10.0, false, true), 0.25));
+        assert!(close(arrow_increment(stepped, 10.0, true, false), 2.5));
+    }
+
+    fn close(left: f64, right: f64) -> bool {
+        (left - right).abs() < 1e-12
     }
 }
