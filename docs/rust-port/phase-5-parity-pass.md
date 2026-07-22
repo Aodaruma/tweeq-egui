@@ -64,6 +64,8 @@ Vue単体ページは`http://localhost:5173/port-reference.html`で開きます�
 - `cargo test --workspace`
 - Windows native galleryの起動、Number absolute drag（`0.75`から`1.50`）、
   focus中の通常/Alt/Shift + 矢印、Angle中心回転drag、各sectionの描画
+- CubicBezier popupを開いた際に異なるegui Layerの`Response`を結合してpanicする
+  問題を修正し、popup表示・handle drag・回帰テストで確認
 - in-app browserでVue単体ページをdesktop幅で目視
 
 active overlayはdrag中だけ表示されるため、自動screenshot baselineは今後、合成

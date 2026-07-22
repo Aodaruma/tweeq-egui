@@ -127,9 +127,13 @@ impl<'a> CubicBezier<'a> {
                 editor.union(numeric)
             });
 
-        popup.map_or(button.clone(), |popup| {
-            button.union(popup.response).union(popup.inner)
-        })
+        let mut response = button;
+        if let Some(popup) = popup
+            && popup.inner.changed()
+        {
+            response.mark_changed();
+        }
+        response
     }
 }
 
@@ -438,8 +442,10 @@ impl<'a> CodeInput<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{curve_to_screen, quantize_bezier, screen_to_curve};
+    use super::{CubicBezier, curve_to_screen, quantize_bezier, screen_to_curve};
+    use crate::TweeqContext;
     use egui::{Pos2, Rect};
+    use tweeq_core::ParamId;
 
     #[test]
     fn bezier_quantization_stays_in_unit_square() {
@@ -454,5 +460,21 @@ mod tests {
         let curve = screen_to_curve(rect, screen);
         assert!((curve[0] - 0.25).abs() < 1.0e-6);
         assert!((curve[1] - 0.75).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn open_bezier_popup_keeps_the_button_response_layer() {
+        egui::__run_test_ui(|ui| {
+            let id = ParamId::from_static("test.bezier.popup");
+            let popup_id = ui.make_persistent_id(("tweeq-bezier-popup", id.as_u64()));
+            egui::Popup::open_id(ui.ctx(), popup_id);
+
+            let mut value = [0.25, 0.1, 0.25, 1.0];
+            let mut context = TweeqContext::default();
+            context.begin_frame();
+            let response = CubicBezier::new(id, &mut value).show(ui, &mut context);
+
+            assert_eq!(response.layer_id, ui.layer_id());
+        });
     }
 }
