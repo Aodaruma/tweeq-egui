@@ -1,11 +1,60 @@
-name: Unit Test / Linting
-on: push
+name: CI
+
+on:
+  push:
+  pull_request:
+
 jobs:
-  build:
+  rust-native:
+    name: Rust native
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Install modules
-        run: yarn
-      - name: Run tests
-        run: yarn test
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --workspace --all-features --locked
+
+  msrv:
+    name: MSRV 1.92.0
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.92.0
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --workspace --all-features --locked
+      - run: cargo check --workspace --all-features --locked --target wasm32-unknown-unknown
+
+  rustdoc:
+    name: Rustdoc
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo doc -p tweeq-core -p tweeq-egui --all-features --no-deps --locked
+
+  rust-wasm:
+    name: Rust WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - run: cargo check --workspace --all-features --locked --target wasm32-unknown-unknown
+
+  package:
+    name: Package dry run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo publish -p tweeq-core --dry-run --locked
+      - run: cargo package -p tweeq-egui --list --locked

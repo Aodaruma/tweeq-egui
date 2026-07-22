@@ -1,55 +1,93 @@
-<div align="center">
+# Tweeq for egui
 
-<img src="./docs/.vuepress/public/logo.svg" width="200" />
-<h1>Tweeq</h1>
+[![crates.io](https://img.shields.io/crates/v/tweeq-egui.svg)](https://crates.io/crates/tweeq-egui)
+[![docs.rs](https://docs.rs/tweeq-egui/badge.svg)](https://docs.rs/tweeq-egui)
+[![CI](https://github.com/Aodaruma/tweeq-egui/actions/workflows/ci.yml/badge.svg)](https://github.com/Aodaruma/tweeq-egui/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<a href="https://baku89.github.io/tweeq/">Documentation</a> ⌇ <a href="https://github.com/sponsors/baku89">Become a Sponsor</a>
+Tweeq-style parameter-tuning widgets for Rust applications built with
+[egui](https://github.com/emilk/egui). The port keeps Tweeq's compact visual
+language and drag-to-tweak interactions while using explicit, Rust-friendly
+edit sessions for undo, cancellation, and simultaneous editing.
 
-</div>
+> `0.1.0-alpha.1` is an API preview. The public API and visual details may
+> change before `0.1.0`.
 
-> [!NOTE]
-> For a live demo of [the UIST paper](https://dl.acm.org/doi/10.1145/3746059.3747723), see [this page](https://baku89.github.io/tweeq/uist2025.html).
+## Install
 
-Tweeq is a collection of [Vue.js](https://vuejs.org) components for design tools. The components range from fundamental UIs such as numeric sliders, color pickers, to advanced and niche controls like a cubic-bezier editor. It supports various micro-interactions suitable for creative professionals.
-
-It has been continuously developed by the visual artist [Baku Hashimoto](https://baku89.com).
-
-## Project Setup
-
-```
-yarn
-yarn dev
-yarn build
+```sh
+cargo add tweeq-egui@0.1.0-alpha.1
 ```
 
-## Project Background
+The crate requires Rust 1.92 or newer. Applications that only need the
+renderer-independent edit and gesture model can depend on
+[`tweeq-core`](https://crates.io/crates/tweeq-core) directly.
 
-Tweeq has been developed in parallel with Baku's animation projects, as part of the design tools used in those projects ([Koma](https://github.com/baku89/koma) and [Unim](https://github.com/baku89/unim)). Many of its components follow the following design principles:
+```rust,no_run
+use tweeq_egui::{Number, ParamId, TweeqContext};
 
-- support diverse input modalities to match users' nuanced control strategies,
-- prioritize high-speed and accurate interaction for skilled users, and
-- minimize visual footprint to preserve the creative workspace.
-
-The design principles were derived from a study that sampled parameter-tuning GUI widgets from popular production software and analyzed their interaction design.
-
-Research-wise, the project has been carried out by Baku, partly in his capacity of a collaborative researcher at AIST, in collaboration with [Jun Kato](https://junkato.jp), a senior researcher at AIST. For more details, please refer to [the project page](https://junkato.jp/tweeq) and the following open-access paper (to appear):
-
-> Baku Hashimoto and Jun Kato. 2025. Tweeq: Parameter-Tuning GUI Widgets by/for Creative Professionals. In <i>The 38th Annual ACM Symposium on User Interface Software and Technology (UIST '25), September 28–October 01, 2025, Busan, Republic of Korea</i>. ACM, New York, NY, USA, 16 pages. https://doi.org/10.1145/3746059.3747723
-
-```
-@inproceedings{uist2025-tweeq,
-  title = {Tweeq: Parameter-Tuning GUI Widgets by/for Creative Professionals},
-  author = {Hashimoto, Baku and Kato, Jun},
-  year = {2025},
-  booktitle = {Proceedings of the 38th Annual ACM Symposium on User Interface Software and Technology},
-  location = {Busan, Republic of Korea},
-  publisher = {Association for Computing Machinery},
-  address = {New York, NY, USA},
-  series = {UIST '25},
-  doi = {10.1145/3746059.3747723},
-  isbn = {9798400720376},
-  url = {https://doi.org/10.1145/3746059.3747723},
-  numpages = {16},
-  keywords = {creativity support, user interface, creative software, numeric slider, color picker}
+fn parameter_ui(ui: &mut egui::Ui, tweeq: &mut TweeqContext, opacity: &mut f64) {
+    Number::new(ParamId::from_static("opacity"), opacity)
+        .range(0.0..=1.0)
+        .step(0.01)
+        .snap(0.1)
+        .precision(3)
+        .show(ui, tweeq);
 }
 ```
+
+The host application drains typed `Begin`, `Update`, `Commit`, and `Cancel`
+events from `TweeqContext`. This keeps model mutation and undo ownership outside
+the widgets.
+
+## Demo and documentation
+
+- Run the native component gallery: `cargo run -p tweeq-demo`
+- Run the web gallery: `cd crates/tweeq-demo && trunk serve index.html --open`
+- [Interactive WASM gallery](https://aodaruma.github.io/tweeq-egui/)
+- [API documentation](https://docs.rs/tweeq-egui)
+- [Architecture and port records](docs/rust-port/README.md)
+- [Research and design background](docs/research.md)
+
+The gallery contains every implemented control and keeps its configuration
+inside the component canvas so native and WASM behavior can be compared with
+the same public API.
+
+## Workspace
+
+| Crate | Purpose | Distribution |
+|---|---|---|
+| [`tweeq-core`](https://crates.io/crates/tweeq-core) | Renderer-independent IDs, edit sessions, selection, gestures, validation, and transforms | crates.io |
+| [`tweeq-egui`](https://crates.io/crates/tweeq-egui) | egui widgets, theme, overlays, pointer policy, and adapters | crates.io |
+| `tweeq-demo` | Native/WASM interactive component gallery | Repository only |
+
+The library crate depends only on `egui` and `tweeq-core`; `eframe` is confined
+to the demo. Native and WASM builds expose the same widget API.
+
+## Alpha compatibility
+
+Number, Angle/Rotary, Boolean, text, choice, vector/geometry, time, color, and
+advanced input families are implemented. Platform pointer-grab behavior and a
+small number of pixel-level details still differ from the browser reference.
+In particular, the Size constraint icon remains a known visual follow-up.
+See the [compatibility report](docs/rust-port/compatibility-report.md) for the
+current contract and documented substitutions.
+
+## Original Tweeq and attribution
+
+[Tweeq](https://baku89.github.io/tweeq/) was created by Baku Hashimoto and
+developed with Jun Kato as parameter-tuning GUI research for creative
+professionals. This Rust port is distributed under the same MIT license and
+retains the original copyright notice.
+
+The final Vue/TypeScript tree before the Rust-only switch is preserved by the
+annotated Git tag [`vue-final-reference`](https://github.com/Aodaruma/tweeq-egui/tree/vue-final-reference).
+The upstream browser implementation remains available at
+[baku89/tweeq](https://github.com/baku89/tweeq).
+
+If this work supports academic research, see [`CITATION.cff`](CITATION.cff) and
+the [UIST 2025 paper](https://doi.org/10.1145/3746059.3747723).
+
+## License
+
+MIT. See [`LICENSE`](LICENSE) and [`NOTICE.md`](NOTICE.md).

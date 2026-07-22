@@ -1,0 +1,65 @@
+name: Publish crate
+
+on:
+  workflow_dispatch:
+    inputs:
+      crate:
+        description: Crate to publish (publish tweeq-core first)
+        required: true
+        type: choice
+        options:
+          - tweeq-core
+          - tweeq-egui
+      version:
+        description: Confirm the exact workspace version
+        required: true
+        type: string
+      dry_run_only:
+        description: Validate without publishing
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: inputs.version == '0.1.0-alpha.1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.92.0
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --workspace --all-features --locked
+      - run: cargo check --workspace --all-features --locked --target wasm32-unknown-unknown
+      - name: Verify crate package contents
+        run: cargo package -p ${{ inputs.crate }} --list --locked
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.92.0
+      - name: Dry-run tweeq-core
+        if: inputs.crate == 'tweeq-core' && inputs.dry_run_only
+        run: cargo publish -p tweeq-core --dry-run --locked
+      - name: Dry-run tweeq-egui
+        if: inputs.crate == 'tweeq-egui' && inputs.dry_run_only
+        run: cargo publish -p tweeq-egui --dry-run --locked
+      - name: Publish tweeq-core
+        if: inputs.crate == 'tweeq-core' && !inputs.dry_run_only
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish -p tweeq-core --locked
+      - name: Publish tweeq-egui
+        if: inputs.crate == 'tweeq-egui' && !inputs.dry_run_only
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish -p tweeq-egui --locked

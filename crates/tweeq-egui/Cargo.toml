@@ -1,0 +1,26 @@
+[package]
+name = "tweeq-egui"
+description = "Tweeq parameter-tuning widgets for egui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/tweeq-egui"
+readme = "README.md"
+keywords = ["egui", "gui", "widgets", "parameter", "creative-tools"]
+categories = ["gui"]
+publish = ["crates-io"]
+include = ["src/**", "README.md", "LICENSE", "NOTICE.md"]
+
+[package.metadata.docs.rs]
+all-features = true
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+
+[dependencies]
+egui.workspace = true
+tweeq-core.workspace = true
+
+[lints]
+workspace = true
