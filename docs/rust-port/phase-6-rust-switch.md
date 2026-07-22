@@ -30,7 +30,7 @@ LICENSE、NOTICE、CITATION、論文情報、設計原則、移植判断は保�
 ## Rust replacements
 
 - native gallery: `cargo run -p tweeq-demo`
-- WASM gallery: `trunk serve crates/tweeq-demo/index.html --open`
+- WASM gallery: `cd crates/tweeq-demo && trunk serve index.html --open`
 - library documentation: `cargo doc -p tweeq-core -p tweeq-egui --all-features --no-deps`
 - Pages: Trunk galleryとrustdocを単一のRust-only workflowで生成
 - CI: stable、MSRV 1.92、WASM、rustdoc、package dry-run

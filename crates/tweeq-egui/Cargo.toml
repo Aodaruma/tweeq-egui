@@ -11,6 +11,12 @@ documentation = "https://docs.rs/tweeq-egui"
 readme = "README.md"
 keywords = ["egui", "gui", "widgets", "parameter", "creative-tools"]
 categories = ["gui"]
+publish = ["crates-io"]
+include = ["src/**", "README.md", "LICENSE", "NOTICE.md"]
+
+[package.metadata.docs.rs]
+all-features = true
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 
 [dependencies]
 egui.workspace = true

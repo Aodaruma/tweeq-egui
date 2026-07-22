@@ -34,7 +34,7 @@ the widgets.
 ## Demo and documentation
 
 - Run the native component gallery: `cargo run -p tweeq-demo`
-- Run the web gallery: `trunk serve crates/tweeq-demo/index.html --open`
+- Run the web gallery: `cd crates/tweeq-demo && trunk serve index.html --open`
 - [Interactive WASM gallery](https://aodaruma.github.io/tweeq-egui/)
 - [API documentation](https://docs.rs/tweeq-egui)
 - [Architecture and port records](docs/rust-port/README.md)
