@@ -1,4 +1,7 @@
-use egui::{FontId, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2};
+use egui::{
+    Color32, CornerRadius, FontId, Key, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui,
+    Vec2,
+};
 use tweeq_core::{EditOperation, ParamId, ParamKind, seeded_unit};
 
 use crate::{Number, TweeqContext};
@@ -7,102 +10,199 @@ use crate::{Number, TweeqContext};
 pub struct CubicBezier<'a> {
     id: ParamId,
     value: &'a mut [f64; 4],
+    step: f64,
+    enabled: bool,
+    invalid: bool,
 }
 
 impl<'a> CubicBezier<'a> {
     pub fn new(id: ParamId, value: &'a mut [f64; 4]) -> Self {
-        Self { id, value }
+        Self {
+            id,
+            value,
+            step: 0.01,
+            enabled: true,
+            invalid: false,
+        }
+    }
+
+    #[must_use]
+    pub fn step(mut self, step: f64) -> Self {
+        if step.is_finite() && step > 0.0 {
+            self.step = step;
+        }
+        self
+    }
+
+    #[must_use]
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    #[must_use]
+    pub fn invalid(mut self, invalid: bool) -> Self {
+        self.invalid = invalid;
+        self
     }
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
     pub fn show(self, ui: &mut Ui, context: &mut TweeqContext) -> Response {
         let theme = context.theme().clone();
-        let width = ui.available_width().clamp(220.0, 420.0);
-        let (rect, preview) = ui.allocate_exact_size(Vec2::new(width, 126.0), Sense::hover());
-        let plot = rect.shrink2(Vec2::new(18.0, 14.0));
-        ui.painter()
-            .rect_filled(rect, theme.input_radius, theme.input);
-
-        for index in 0..=4 {
-            let fraction = index as f32 / 4.0;
-            let x = egui::lerp(plot.x_range(), fraction);
-            let y = egui::lerp(plot.y_range(), fraction);
-            ui.painter().line_segment(
-                [Pos2::new(x, plot.top()), Pos2::new(x, plot.bottom())],
-                Stroke::new(1.0, theme.border.gamma_multiply(0.45)),
-            );
-            ui.painter().line_segment(
-                [Pos2::new(plot.left(), y), Pos2::new(plot.right(), y)],
-                Stroke::new(1.0, theme.border.gamma_multiply(0.45)),
-            );
-        }
-
-        let start = Pos2::new(plot.left(), plot.bottom());
-        let end = Pos2::new(plot.right(), plot.top());
-        let first = curve_to_screen(plot, self.value[0], self.value[1]);
-        let second = curve_to_screen(plot, self.value[2], self.value[3]);
-        ui.painter()
-            .line_segment([start, first], Stroke::new(1.0, theme.text_muted));
-        ui.painter()
-            .line_segment([end, second], Stroke::new(1.0, theme.text_muted));
-
-        let mut points = Vec::with_capacity(33);
-        for index in 0..=32 {
-            let t = f64::from(index) / 32.0;
-            let one_minus_t = 1.0 - t;
-            let x = 3.0 * one_minus_t.powi(2) * t * self.value[0]
-                + 3.0 * one_minus_t * t.powi(2) * self.value[2]
-                + t.powi(3);
-            let y = 3.0 * one_minus_t.powi(2) * t * self.value[1]
-                + 3.0 * one_minus_t * t.powi(2) * self.value[3]
-                + t.powi(3);
-            points.push(curve_to_screen(plot, x, y));
-        }
-        ui.painter()
-            .add(Shape::line(points, Stroke::new(2.0, theme.accent)));
-
-        let first_response = drag_handle(
-            ui,
-            context,
-            self.id.child(101),
-            &mut self.value[0..2],
-            first,
-            plot,
+        let sense = if self.enabled {
+            Sense::click()
+        } else {
+            Sense::hover()
+        };
+        let (rect, button) = ui.allocate_exact_size(Vec2::splat(theme.input_height), sense);
+        let fill = if button.hovered() && self.enabled {
+            theme.input_hover
+        } else {
+            theme.accent_hover
+        };
+        ui.painter().rect(
+            rect,
+            CornerRadius::same(theme.input_radius),
+            fill,
+            Stroke::new(
+                1.0,
+                if self.invalid {
+                    Color32::from_rgb(239, 92, 92)
+                } else {
+                    fill
+                },
+            ),
+            StrokeKind::Inside,
         );
-        let second_response = drag_handle(
+        paint_curve(
             ui,
-            context,
-            self.id.child(102),
-            &mut self.value[2..4],
-            second,
-            plot,
+            rect.shrink(3.0),
+            self.value,
+            Stroke::new(
+                1.5,
+                if self.enabled {
+                    theme.accent
+                } else {
+                    theme.text_muted
+                },
+            ),
         );
 
-        let numeric = ui
-            .horizontal(|ui| {
-                let mut combined = None;
-                for (index, component) in self.value.iter_mut().enumerate() {
-                    let response = Number::new(self.id.child(index as u64 + 1), component)
-                        .range(0.0..=1.0)
-                        .step(0.01)
-                        .precision(3)
-                        .bar(false)
-                        .width(72.0)
-                        .show(ui, context)
-                        .response;
-                    combined = Some(combined.map_or(response.clone(), |previous: Response| {
-                        previous.union(response)
-                    }));
-                }
-                combined.unwrap_or_else(|| ui.allocate_response(Vec2::ZERO, Sense::hover()))
-            })
-            .inner;
+        if !self.enabled {
+            return button;
+        }
 
-        preview
-            .union(first_response)
-            .union(second_response)
-            .union(numeric)
+        let popup = egui::Popup::from_toggle_button_response(&button)
+            .id(ui.make_persistent_id(("tweeq-bezier-popup", self.id.as_u64())))
+            .gap(4.0)
+            .width(240.0)
+            .show(|ui| {
+                ui.set_min_width(220.0);
+                let editor =
+                    show_bezier_editor(ui, context, self.id, self.value, self.step, self.invalid);
+                let numeric = ui
+                    .horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 3.0;
+                        let mut combined = None;
+                        for (index, component) in self.value.iter_mut().enumerate() {
+                            let prefix = ["X1 ", "Y1 ", "X2 ", "Y2 "][index];
+                            let response = Number::new(self.id.child(index as u64 + 1), component)
+                                .range(0.0..=1.0)
+                                .step(self.step)
+                                .precision(3)
+                                .prefix(prefix)
+                                .bar(false)
+                                .width(52.0)
+                                .invalid(self.invalid)
+                                .show(ui, context)
+                                .response;
+                            combined =
+                                Some(combined.map_or(response.clone(), |previous: Response| {
+                                    previous.union(response)
+                                }));
+                        }
+                        combined.unwrap_or_else(|| ui.allocate_response(Vec2::ZERO, Sense::hover()))
+                    })
+                    .inner;
+                editor.union(numeric)
+            });
+
+        popup.map_or(button.clone(), |popup| {
+            button.union(popup.response).union(popup.inner)
+        })
     }
+}
+
+fn show_bezier_editor(
+    ui: &mut Ui,
+    context: &mut TweeqContext,
+    id: ParamId,
+    value: &mut [f64; 4],
+    step: f64,
+    invalid: bool,
+) -> Response {
+    let theme = context.theme().clone();
+    let (rect, preview) = ui.allocate_exact_size(Vec2::splat(220.0), Sense::hover());
+    ui.painter().rect(
+        rect,
+        CornerRadius::same(theme.input_radius),
+        theme.surface,
+        Stroke::new(
+            1.0,
+            if invalid {
+                Color32::from_rgb(239, 92, 92)
+            } else {
+                theme.border
+            },
+        ),
+        StrokeKind::Inside,
+    );
+    let plot = rect.shrink(16.0);
+    let start = Pos2::new(plot.left(), plot.bottom());
+    let end = Pos2::new(plot.right(), plot.top());
+    let first = curve_to_screen(plot, value[0], value[1]);
+    let second = curve_to_screen(plot, value[2], value[3]);
+    ui.painter()
+        .line_segment([start, first], Stroke::new(1.0, theme.accent));
+    ui.painter()
+        .line_segment([end, second], Stroke::new(1.0, theme.accent));
+    paint_curve(ui, plot, value, Stroke::new(2.0, theme.accent));
+
+    let first_response = drag_handle(
+        ui,
+        context,
+        id.child(101),
+        &mut value[0..2],
+        first,
+        plot,
+        step,
+    );
+    let second_response = drag_handle(
+        ui,
+        context,
+        id.child(102),
+        &mut value[2..4],
+        second,
+        plot,
+        step,
+    );
+    preview.union(first_response).union(second_response)
+}
+
+fn paint_curve(ui: &Ui, plot: Rect, value: &[f64; 4], stroke: Stroke) {
+    let mut points = Vec::with_capacity(33);
+    for index in 0..=32 {
+        let t = f64::from(index) / 32.0;
+        let one_minus_t = 1.0 - t;
+        let x = 3.0 * one_minus_t.powi(2) * t * value[0]
+            + 3.0 * one_minus_t * t.powi(2) * value[2]
+            + t.powi(3);
+        let y = 3.0 * one_minus_t.powi(2) * t * value[1]
+            + 3.0 * one_minus_t * t.powi(2) * value[3]
+            + t.powi(3);
+        points.push(curve_to_screen(plot, x, y));
+    }
+    ui.painter().add(Shape::line(points, stroke));
 }
 
 fn drag_handle(
@@ -112,6 +212,7 @@ fn drag_handle(
     value: &mut [f64],
     center: Pos2,
     plot: Rect,
+    step: f64,
 ) -> Response {
     let egui_id = ui.make_persistent_id(("tweeq-bezier-handle", id.as_u64()));
     let response = ui.interact(
@@ -123,6 +224,8 @@ fn drag_handle(
     context.register_vector(id, [value[0], value[1]]);
     let mut state = context.take_vector_drag_state(id);
     if response.drag_started() {
+        response.request_focus();
+        context.activate_selection(id, ParamKind::Vector, false, false);
         state.captured = [value[0], value[1]];
         state.session = Some(context.start_edit(id, ParamKind::Vector));
     }
@@ -130,7 +233,11 @@ fn drag_handle(
         && let Some(pointer) = response.interact_pointer_pos()
         && let Some(session) = state.session
     {
-        let next = screen_to_curve(plot, pointer);
+        let mut next = screen_to_curve(plot, pointer);
+        if ui.input(|input| input.key_down(Key::Q)) {
+            next[0] = quantize_bezier(next[0], step.max(0.1));
+            next[1] = quantize_bezier(next[1], step.max(0.1));
+        }
         let delta = [next[0] - state.captured[0], next[1] - state.captured[1]];
         value.copy_from_slice(&next);
         context.update_edit(
@@ -146,13 +253,59 @@ fn drag_handle(
     {
         context.finish_edit(session, true);
     }
-    ui.painter().circle_filled(
+    if response.has_focus() && !response.dragged() {
+        let direction = ui.input(|input| {
+            let x = f64::from(input.key_pressed(Key::ArrowRight))
+                - f64::from(input.key_pressed(Key::ArrowLeft));
+            let y = f64::from(input.key_pressed(Key::ArrowUp))
+                - f64::from(input.key_pressed(Key::ArrowDown));
+            [x, y]
+        });
+        if direction != [0.0, 0.0] {
+            let multiplier = ui.input(|input| {
+                if input.modifiers.shift {
+                    10.0
+                } else if input.modifiers.alt {
+                    0.1
+                } else {
+                    1.0
+                }
+            });
+            let before = [value[0], value[1]];
+            value[0] = (value[0] + direction[0] * step * multiplier).clamp(0.0, 1.0);
+            value[1] = (value[1] + direction[1] * step * multiplier).clamp(0.0, 1.0);
+            if [value[0], value[1]] != before {
+                context.immediate_edit(
+                    id,
+                    ParamKind::Vector,
+                    EditOperation::AddVector {
+                        delta: [value[0] - before[0], value[1] - before[1], 0.0, 0.0],
+                        dimensions: 2,
+                    },
+                );
+            }
+        }
+    }
+    ui.painter().circle(
         center,
-        if response.hovered() { 7.0 } else { 5.0 },
-        theme.accent,
+        if response.hovered() { 7.0 } else { 6.0 },
+        if response.hovered() {
+            theme.accent
+        } else {
+            theme.background
+        },
+        Stroke::new(2.0, theme.accent),
     );
     context.put_vector_drag_state(id, state);
     response
+}
+
+fn quantize_bezier(value: f64, step: f64) -> f64 {
+    if step.is_finite() && step > 0.0 {
+        ((value / step).round() * step).clamp(0.0, 1.0)
+    } else {
+        value.clamp(0.0, 1.0)
+    }
 }
 
 #[allow(clippy::cast_possible_truncation)]
@@ -276,5 +429,26 @@ impl<'a> CodeInput<'a> {
                 .desired_rows(self.rows)
                 .desired_width(f32::INFINITY),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{curve_to_screen, quantize_bezier, screen_to_curve};
+    use egui::{Pos2, Rect};
+
+    #[test]
+    fn bezier_quantization_stays_in_unit_square() {
+        assert!((quantize_bezier(0.26, 0.1) - 0.3).abs() < 1.0e-12);
+        assert_eq!(quantize_bezier(2.0, 0.1), 1.0);
+    }
+
+    #[test]
+    fn bezier_screen_mapping_round_trips() {
+        let rect = Rect::from_min_max(Pos2::new(10.0, 20.0), Pos2::new(210.0, 220.0));
+        let screen = curve_to_screen(rect, 0.25, 0.75);
+        let curve = screen_to_curve(rect, screen);
+        assert!((curve[0] - 0.25).abs() < 1.0e-6);
+        assert!((curve[1] - 0.75).abs() < 1.0e-6);
     }
 }
