@@ -220,6 +220,16 @@ impl TweeqContext {
         session
     }
 
+    pub(crate) fn start_exclusive_edit(
+        &mut self,
+        source: ParamId,
+        kind: ParamKind,
+    ) -> EditSessionId {
+        self.register(source, kind);
+        self.selection.select_only(source);
+        self.start_edit(source, kind)
+    }
+
     pub(crate) fn update_edit(&mut self, session: EditSessionId, operation: EditOperation) {
         self.events.push(EditEvent::Update { session, operation });
     }
@@ -287,5 +297,34 @@ impl TweeqContext {
 impl Default for TweeqContext {
     fn default() -> Self {
         Self::new(TweeqTheme::dark())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TweeqContext;
+    use tweeq_core::{EditEvent, ParamId, ParamKind};
+
+    #[test]
+    fn exclusive_edit_drops_an_unrelated_numeric_selection() {
+        let selected = ParamId::from_static("test.selected-number");
+        let timeline = ParamId::from_static("test.timeline");
+        let mut context = TweeqContext::default();
+        context.register_number(selected, 12.0);
+        context.register_number(timeline, 24.0);
+        context.activate_selection(selected, ParamKind::Number, false, false);
+
+        context.start_exclusive_edit(timeline, ParamKind::Number);
+
+        let event = context.drain_events().next().expect("begin event");
+        let EditEvent::Begin {
+            source, targets, ..
+        } = event
+        else {
+            panic!("expected begin event");
+        };
+        assert_eq!(source, timeline);
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].id, timeline);
     }
 }

@@ -14,6 +14,13 @@ use crate::{TweeqContext, TweeqTheme};
 
 const INVALID: Color32 = Color32::from_rgb(232, 78, 88);
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum TimeDisplay {
+    #[default]
+    Smpte,
+    Frames,
+}
+
 #[derive(Clone)]
 struct TimecodeState {
     editing: bool,
@@ -21,16 +28,20 @@ struct TimecodeState {
     captured: i64,
     drag_value: f64,
     scale: usize,
+    display: TimeDisplay,
+    request_focus: bool,
 }
 
 impl TimecodeState {
-    fn new(frames: i64, frame_rate: u32) -> Self {
+    fn new(frames: i64, frame_rate: u32, display: TimeDisplay) -> Self {
         Self {
             editing: false,
-            buffer: format_timecode(frames, frame_rate),
+            buffer: format_time(frames, frame_rate, display),
             captured: frames,
             drag_value: frames as f64,
             scale: 0,
+            display,
+            request_focus: false,
         }
     }
 }
@@ -45,6 +56,7 @@ pub struct Timecode<'a> {
     width: f32,
     enabled: bool,
     invalid: bool,
+    display: Option<&'a mut TimeDisplay>,
 }
 
 impl<'a> Timecode<'a> {
@@ -58,6 +70,7 @@ impl<'a> Timecode<'a> {
             width: 240.0,
             enabled: true,
             invalid: false,
+            display: None,
         }
     }
 
@@ -92,14 +105,29 @@ impl<'a> Timecode<'a> {
         self
     }
 
+    #[must_use]
+    pub fn display(mut self, display: &'a mut TimeDisplay) -> Self {
+        self.display = Some(display);
+        self
+    }
+
     #[allow(clippy::too_many_lines)]
     pub fn show(self, ui: &mut Ui, context: &mut TweeqContext) -> Response {
         context.register_number(self.id, *self.frames as f64);
         let theme = context.theme().clone();
         let state_id = ui.make_persistent_id(("tweeq-timecode", self.id.as_u64()));
+        let requested_display = self
+            .display
+            .as_ref()
+            .map_or(TimeDisplay::Smpte, |display| **display);
         let mut state = ui
             .data(|data| data.get_temp::<TimecodeState>(state_id))
-            .unwrap_or_else(|| TimecodeState::new(*self.frames, self.frame_rate));
+            .unwrap_or_else(|| {
+                TimecodeState::new(*self.frames, self.frame_rate, requested_display)
+            });
+        if self.display.is_some() {
+            state.display = requested_display;
+        }
         let before = *self.frames;
 
         let mut response = if state.editing && self.enabled {
@@ -115,8 +143,9 @@ impl<'a> Timecode<'a> {
                     )
                 })
                 .inner;
-            if !response.has_focus() {
+            if state.request_focus {
                 response.request_focus();
+                state.request_focus = false;
             }
 
             if response.changed()
@@ -140,7 +169,7 @@ impl<'a> Timecode<'a> {
                     .frames
                     .saturating_add(amount * direction)
                     .clamp(self.min, self.max);
-                state.buffer = format_timecode(*self.frames, self.frame_rate);
+                state.buffer = format_time(*self.frames, self.frame_rate, state.display);
                 response.mark_changed();
             }
             if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
@@ -150,9 +179,10 @@ impl<'a> Timecode<'a> {
             } else if ui.input(|input| input.key_pressed(egui::Key::Enter)) || response.lost_focus()
             {
                 state.editing = false;
-                state.buffer = format_timecode(*self.frames, self.frame_rate);
+                state.buffer = format_time(*self.frames, self.frame_rate, state.display);
                 response.surrender_focus();
             }
+            paint_clock_icon(ui, response.rect, theme.text_muted);
             response
         } else {
             let (rect, mut response) = ui.allocate_exact_size(
@@ -164,13 +194,16 @@ impl<'a> Timecode<'a> {
                 },
             );
             response = response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
+            let segments = time_segments(ui, rect, *self.frames, self.frame_rate, state.display);
 
             if self.enabled {
                 if response.drag_started() {
+                    response.request_focus();
                     state.captured = *self.frames;
                     state.drag_value = *self.frames as f64;
                     state.scale =
-                        hovered_time_scale(rect, ui.input(|input| input.pointer.interact_pos()));
+                        time_scale_at(&segments, ui.input(|input| input.pointer.interact_pos()))
+                            .unwrap_or(0);
                 }
                 if response.dragged() {
                     state.scale = forced_time_scale(ui).unwrap_or_else(|| {
@@ -187,18 +220,27 @@ impl<'a> Timecode<'a> {
                     ui.ctx().request_repaint();
                 } else if response.clicked() {
                     state.editing = true;
+                    state.request_focus = true;
                     state.captured = *self.frames;
-                    state.buffer = format_timecode(*self.frames, self.frame_rate);
+                    state.buffer = format_time(*self.frames, self.frame_rate, state.display);
                     ui.ctx().request_repaint();
                 }
             }
+
+            let highlighted_scale = if response.dragged() {
+                Some(state.scale)
+            } else if response.hovered() {
+                time_scale_at(&segments, ui.input(|input| input.pointer.hover_pos()))
+            } else {
+                None
+            };
 
             paint_timecode(
                 ui,
                 rect,
                 &response,
-                *self.frames,
-                self.frame_rate,
+                &segments,
+                highlighted_scale,
                 self.enabled,
                 self.invalid,
                 &theme,
@@ -225,7 +267,34 @@ impl<'a> Timecode<'a> {
             );
         }
         if !state.editing {
-            state.buffer = format_timecode(*self.frames, self.frame_rate);
+            state.buffer = format_time(*self.frames, self.frame_rate, state.display);
+        }
+        let mut display_changed = false;
+        response.context_menu(|ui| {
+            ui.set_min_width(150.0);
+            ui.weak("Display format");
+            for (display, label) in [
+                (TimeDisplay::Smpte, "SMPTE Timecode"),
+                (TimeDisplay::Frames, "Frames"),
+            ] {
+                if ui
+                    .selectable_label(state.display == display, label)
+                    .clicked()
+                {
+                    state.display = display;
+                    display_changed = true;
+                    ui.close();
+                }
+            }
+        });
+        if display_changed {
+            state.editing = false;
+            state.buffer = format_time(*self.frames, self.frame_rate, state.display);
+            response.surrender_focus();
+            ui.ctx().request_repaint();
+        }
+        if let Some(display) = self.display {
+            *display = state.display;
         }
         ui.data_mut(|data| data.insert_temp(state_id, state));
         response
@@ -237,8 +306,8 @@ fn paint_timecode(
     ui: &Ui,
     rect: egui::Rect,
     response: &Response,
-    frames: i64,
-    frame_rate: u32,
+    segments: &[TimeSegment],
+    highlighted_scale: Option<usize>,
     enabled: bool,
     invalid: bool,
     theme: &TweeqTheme,
@@ -266,53 +335,125 @@ fn paint_timecode(
         stroke,
         StrokeKind::Inside,
     );
-    ui.painter().text(
-        egui::pos2(rect.left() + 7.0, rect.center().y),
-        egui::Align2::LEFT_CENTER,
-        "◷",
-        egui::TextStyle::Body.resolve(ui.style()),
-        theme.text_muted,
-    );
-    let text = format_timecode(frames, frame_rate);
-    ui.painter().text(
-        rect.center(),
-        egui::Align2::CENTER_CENTER,
-        text,
-        egui::TextStyle::Monospace.resolve(ui.style()),
-        if invalid {
-            INVALID
-        } else if enabled {
-            theme.text
-        } else {
-            theme.text_muted
-        },
-    );
+    paint_clock_icon(ui, rect, theme.text_muted);
 
-    if response.hovered()
-        && let Some(pointer) = ui.input(|input| input.pointer.hover_pos())
+    if let Some(scale) = highlighted_scale
+        && let Some(segment) = segments.iter().find(|segment| segment.scale == scale)
     {
-        let scale = hovered_time_scale(rect, Some(pointer));
-        let chunks = if frames.saturating_abs() >= i64::from(frame_rate) * 3600 {
-            4.0
-        } else {
-            3.0
-        };
-        let content_width = (rect.width() - 48.0).min(chunks * 34.0);
-        let unit_width = content_width / chunks;
-        let right = rect.center().x + content_width * 0.5;
-        let unit = egui::Rect::from_center_size(
-            egui::pos2(right - unit_width * (scale as f32 + 0.5), rect.center().y),
-            egui::vec2(unit_width - 2.0, rect.height() - 4.0),
-        );
         ui.painter().rect_filled(
-            unit,
+            segment.rect,
             CornerRadius::same(theme.input_radius),
             theme.text_muted.gamma_multiply(0.18),
         );
+    }
+
+    let color = if invalid {
+        INVALID
+    } else if enabled {
+        theme.text
+    } else {
+        theme.text_muted
+    };
+    for (index, segment) in segments.iter().enumerate() {
+        ui.painter().text(
+            segment.rect.center(),
+            egui::Align2::CENTER_CENTER,
+            &segment.text,
+            egui::TextStyle::Monospace.resolve(ui.style()),
+            color,
+        );
+        if index + 1 < segments.len() {
+            let next = &segments[index + 1];
+            ui.painter().text(
+                egui::pos2(
+                    (segment.rect.right() + next.rect.left()) * 0.5,
+                    rect.center().y,
+                ),
+                egui::Align2::CENTER_CENTER,
+                ":",
+                egui::TextStyle::Monospace.resolve(ui.style()),
+                theme.text_muted,
+            );
+        }
+    }
+
+    if (response.hovered() || response.dragged())
+        && let Some(scale) = highlighted_scale
+    {
         egui::Tooltip::for_widget(response).show(|ui| {
             ui.label(["Frames", "Secs", "Mins", "Hrs"][scale]);
         });
     }
+}
+
+#[derive(Debug, Clone)]
+struct TimeSegment {
+    scale: usize,
+    rect: egui::Rect,
+    text: String,
+}
+
+fn time_segments(
+    ui: &Ui,
+    rect: egui::Rect,
+    frames: i64,
+    frame_rate: u32,
+    display: TimeDisplay,
+) -> Vec<TimeSegment> {
+    let parts = time_parts(frames, frame_rate, display);
+    let font = egui::TextStyle::Monospace.resolve(ui.style());
+    let separator_width = ui
+        .painter()
+        .layout_no_wrap(":".to_owned(), font.clone(), Color32::WHITE)
+        .size()
+        .x;
+    let widths: Vec<_> = parts
+        .iter()
+        .map(|(_, text)| {
+            ui.painter()
+                .layout_no_wrap(text.clone(), font.clone(), Color32::WHITE)
+                .size()
+                .x
+                + 6.0
+        })
+        .collect();
+    let total_width =
+        widths.iter().sum::<f32>() + separator_width * parts.len().saturating_sub(1) as f32;
+    let mut x = rect.center().x - total_width * 0.5;
+    parts
+        .into_iter()
+        .zip(widths)
+        .map(|((scale, text), width)| {
+            let segment = TimeSegment {
+                scale,
+                rect: egui::Rect::from_min_size(
+                    egui::pos2(x, rect.top() + 2.0),
+                    egui::vec2(width, rect.height() - 4.0),
+                ),
+                text,
+            };
+            x += width + separator_width;
+            segment
+        })
+        .collect()
+}
+
+fn time_scale_at(segments: &[TimeSegment], pointer: Option<egui::Pos2>) -> Option<usize> {
+    let pointer = pointer?;
+    segments
+        .iter()
+        .find(|segment| segment.rect.contains(pointer))
+        .map(|segment| segment.scale)
+}
+
+fn paint_clock_icon(ui: &Ui, rect: egui::Rect, color: Color32) {
+    let center = egui::pos2(rect.left() + 13.0, rect.center().y);
+    let stroke = Stroke::new(1.25, color);
+    ui.painter().circle_stroke(center, 5.2, stroke);
+    ui.painter()
+        .line_segment([center, center + Vec2::new(0.0, -3.1)], stroke);
+    ui.painter()
+        .line_segment([center, center + Vec2::new(2.7, 1.8)], stroke);
 }
 
 fn paint_time_overlay(
@@ -364,14 +505,6 @@ fn paint_time_overlay(
             ),
         );
     }
-}
-
-fn hovered_time_scale(rect: egui::Rect, pointer: Option<egui::Pos2>) -> usize {
-    let Some(pointer) = pointer else {
-        return 0;
-    };
-    let normalized = ((rect.right() - pointer.x) / rect.width()).clamp(0.0, 0.999_999);
-    (normalized * 4.0) as usize
 }
 
 fn forced_time_scale(ui: &Ui) -> Option<usize> {
@@ -440,6 +573,27 @@ fn format_timecode(frames: i64, frame_rate: u32) -> String {
     }
 }
 
+fn format_time(frames: i64, frame_rate: u32, display: TimeDisplay) -> String {
+    match display {
+        TimeDisplay::Smpte => format_timecode(frames, frame_rate),
+        TimeDisplay::Frames => format!("{frames}F"),
+    }
+}
+
+fn time_parts(frames: i64, frame_rate: u32, display: TimeDisplay) -> Vec<(usize, String)> {
+    if display == TimeDisplay::Frames {
+        return vec![(0, format!("{frames}F"))];
+    }
+    let text = format_timecode(frames, frame_rate);
+    let chunks: Vec<_> = text.split(':').map(str::to_owned).collect();
+    let length = chunks.len();
+    chunks
+        .into_iter()
+        .enumerate()
+        .map(|(index, text)| (length - index - 1, text))
+        .collect()
+}
+
 fn parse_timecode(input: &str, frame_rate: u32) -> Option<i64> {
     let input = input.trim().to_lowercase();
     let fps = f64::from(frame_rate.max(1));
@@ -493,7 +647,7 @@ fn parse_timecode(input: &str, frame_rate: u32) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_timecode, parse_timecode, snap_time};
+    use super::{TimeDisplay, format_time, format_timecode, parse_timecode, snap_time, time_parts};
 
     #[test]
     fn formats_frame_timecode_like_vue() {
@@ -515,5 +669,18 @@ mod tests {
         assert_eq!(snap_time(53, 5, 1, 24), 53);
         assert_eq!(snap_time(49, 5, 1, 24), 53);
         assert_eq!(snap_time(31, 5, 1, 24), 29);
+    }
+
+    #[test]
+    fn display_modes_and_segment_scales_match_the_visible_text() {
+        assert_eq!(format_time(48, 24, TimeDisplay::Frames), "48F");
+        assert_eq!(
+            time_parts(24 * 61 + 12, 24, TimeDisplay::Smpte),
+            vec![
+                (2, "01".to_owned()),
+                (1, "01".to_owned()),
+                (0, "12".to_owned())
+            ]
+        );
     }
 }

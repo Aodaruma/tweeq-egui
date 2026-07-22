@@ -236,8 +236,9 @@ impl<'a> Timeline<'a> {
 
         let mut state = context.take_scalar_drag_state(self.id);
         if response.drag_started() {
+            response.request_focus();
             state.captured = *self.current;
-            state.session = Some(context.start_edit(self.id, ParamKind::Number));
+            state.session = Some(context.start_exclusive_edit(self.id, ParamKind::Number));
         }
         if (response.dragged() || response.clicked())
             && let Some(pointer) = response.interact_pointer_pos()
@@ -248,11 +249,10 @@ impl<'a> Timeline<'a> {
             if let Some(session) = state.session {
                 context.update_edit(session, EditOperation::SetNumber(candidate));
             } else {
-                context.immediate_edit(
-                    self.id,
-                    ParamKind::Number,
-                    EditOperation::SetNumber(candidate),
-                );
+                response.request_focus();
+                let session = context.start_exclusive_edit(self.id, ParamKind::Number);
+                context.update_edit(session, EditOperation::SetNumber(candidate));
+                context.finish_edit(session, true);
             }
         }
         if response.drag_stopped()

@@ -32,7 +32,7 @@ pub use tweeq_core::{
 pub use widgets::{
     Angle, Button, Checkbox, CodeInput, ColorInput, ComplexInput, CubicBezier, Dropdown, Drum,
     InputGroup, Number, NumberBar, PointerPolicy, Position, Radio, Rotary, Shuffle, Size,
-    StringInput, Switch, Timecode, ToggleButton, Translate, TweakResponse, Vector,
+    StringInput, Switch, TimeDisplay, Timecode, ToggleButton, Translate, TweakResponse, Vector,
 };
 pub use workspace::{
     CollapsingPane, CommandPalette, FloatingPane, Ruler, Tabs, Timeline, Viewport2D,
