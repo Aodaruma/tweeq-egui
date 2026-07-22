@@ -1,9 +1,19 @@
-# Tweeq for egui
+<div align="center">
+
+<img src="./assets/logo.svg" width="200" alt="Tweeq logo" />
+<h1>Tweeq for egui</h1>
+
+<a href="https://aodaruma.github.io/tweeq-egui/">Documentation &amp; WASM gallery</a> ⌇ <a href="https://github.com/sponsors/baku89">Become a Sponsor</a>
+
+</div>
 
 [![crates.io](https://img.shields.io/crates/v/tweeq-egui.svg)](https://crates.io/crates/tweeq-egui)
 [![docs.rs](https://docs.rs/tweeq-egui/badge.svg)](https://docs.rs/tweeq-egui)
 [![CI](https://github.com/Aodaruma/tweeq-egui/actions/workflows/ci.yml/badge.svg)](https://github.com/Aodaruma/tweeq-egui/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+> [!NOTE]
+> For a live demo of [the UIST paper](https://dl.acm.org/doi/10.1145/3746059.3747723), see [the original Tweeq paper page](https://baku89.github.io/tweeq/uist2025.html).
 
 Tweeq-style parameter-tuning widgets for Rust applications built with
 [egui](https://github.com/emilk/egui). The port keeps Tweeq's compact visual
