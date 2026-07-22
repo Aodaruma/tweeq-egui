@@ -1,5 +1,10 @@
 # Tweeq for egui
 
+[![crates.io](https://img.shields.io/crates/v/tweeq-egui.svg)](https://crates.io/crates/tweeq-egui)
+[![docs.rs](https://docs.rs/tweeq-egui/badge.svg)](https://docs.rs/tweeq-egui)
+[![CI](https://github.com/Aodaruma/tweeq-egui/actions/workflows/ci.yml/badge.svg)](https://github.com/Aodaruma/tweeq-egui/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Tweeq-style parameter-tuning widgets for Rust applications built with
 [egui](https://github.com/emilk/egui). The port keeps Tweeq's compact visual
 language and drag-to-tweak interactions while using explicit, Rust-friendly
@@ -13,6 +18,10 @@ edit sessions for undo, cancellation, and simultaneous editing.
 ```sh
 cargo add tweeq-egui@0.1.0-alpha.1
 ```
+
+The crate requires Rust 1.92 or newer. Applications that only need the
+renderer-independent edit and gesture model can depend on
+[`tweeq-core`](https://crates.io/crates/tweeq-core) directly.
 
 ```rust,no_run
 use tweeq_egui::{Number, ParamId, TweeqContext};
@@ -48,8 +57,8 @@ the same public API.
 
 | Crate | Purpose | Distribution |
 |---|---|---|
-| `tweeq-core` | Renderer-independent IDs, edit sessions, selection, gestures, validation, and transforms | crates.io package |
-| `tweeq-egui` | egui widgets, theme, overlays, pointer policy, and adapters | crates.io package |
+| [`tweeq-core`](https://crates.io/crates/tweeq-core) | Renderer-independent IDs, edit sessions, selection, gestures, validation, and transforms | crates.io |
+| [`tweeq-egui`](https://crates.io/crates/tweeq-egui) | egui widgets, theme, overlays, pointer policy, and adapters | crates.io |
 | `tweeq-demo` | Native/WASM interactive component gallery | Repository only |
 
 The library crate depends only on `egui` and `tweeq-core`; `eframe` is confined
