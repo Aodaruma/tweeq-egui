@@ -5,6 +5,7 @@
 mod context;
 mod theme;
 mod widgets;
+mod workspace;
 
 pub use context::TweeqContext;
 pub use theme::{ColorMode, TweeqTheme};
@@ -13,7 +14,10 @@ pub use tweeq_core::{
     EditEvent, EditOperation, EditSessionId, ParamId, ParamKind, ParamSnapshot, ParamValue,
 };
 pub use widgets::{
-    Angle, Button, Checkbox, ColorInput, Dropdown, Drum, InputGroup, Number, PointerPolicy,
-    Position, Radio, Rotary, Size, StringInput, Switch, Timecode, ToggleButton, Translate,
-    TweakResponse, Vector,
+    Angle, Button, Checkbox, CodeInput, ColorInput, ComplexInput, CubicBezier, Dropdown, Drum,
+    InputGroup, Number, PointerPolicy, Position, Radio, Rotary, Shuffle, Size, StringInput, Switch,
+    Timecode, ToggleButton, Translate, TweakResponse, Vector,
+};
+pub use workspace::{
+    CollapsingPane, CommandPalette, FloatingPane, Ruler, Tabs, Timeline, Viewport2D,
 };

@@ -11,12 +11,14 @@ mod gesture;
 mod id;
 mod selection;
 mod validation;
+mod workspace;
 
 pub use edit::{EditEvent, EditOperation, EditSessionId, ParamKind, ParamSnapshot, ParamValue};
 pub use gesture::{GestureModifiers, GestureUpdate, TweakGesture};
 pub use id::ParamId;
 pub use selection::Selection;
 pub use validation::{NumberConstraints, NumberValidation, quantize};
+pub use workspace::{ViewTransform, nice_tick_step, seeded_unit};
 
 /// The workspace package version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

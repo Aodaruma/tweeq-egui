@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 use eframe::egui;
 use tweeq_egui::{
-    Angle, Button, Checkbox, ColorInput, ColorMode, Dropdown, Drum, EditEvent, EditOperation,
-    EditSessionId, InputGroup, Number, ParamId, ParamValue, PointerPolicy, Position, Radio, Rotary,
-    Size, StringInput, Switch, Timecode, ToggleButton, Translate, TweeqContext, TweeqTheme, Vector,
+    Angle, Button, Checkbox, CodeInput, CollapsingPane, ColorInput, ColorMode, CommandPalette,
+    ComplexInput, CubicBezier, Dropdown, Drum, EditEvent, EditOperation, EditSessionId,
+    FloatingPane, InputGroup, Number, ParamId, ParamSnapshot, ParamValue, PointerPolicy, Position,
+    Radio, Rotary, Ruler, Shuffle, Size, StringInput, Switch, Tabs, Timecode, Timeline,
+    ToggleButton, Translate, TweeqContext, TweeqTheme, Vector, Viewport2D,
 };
 
 const OPACITY: ParamId = ParamId::from_static("demo.opacity");
@@ -25,7 +27,12 @@ const VECTOR: ParamId = ParamId::from_static("demo.vector");
 const SIZE: ParamId = ParamId::from_static("demo.size");
 const TIMECODE: ParamId = ParamId::from_static("demo.timecode");
 const COLOR: ParamId = ParamId::from_static("demo.color");
+const BEZIER: ParamId = ParamId::from_static("demo.bezier");
+const SHUFFLE: ParamId = ParamId::from_static("demo.shuffle");
+const COMPLEX: ParamId = ParamId::from_static("demo.complex");
+const TIMELINE: ParamId = ParamId::from_static("demo.timeline");
 const FRUIT: &[&str] = &["Apple", "Banana", "Cherry", "Dragonfruit"];
+const COMMANDS: &[&str] = &["Reset viewport", "Toggle theme", "Export parameters"];
 
 /// Interactive gallery used to develop and verify Tweeq widgets.
 #[allow(clippy::struct_excessive_bools)]
@@ -53,7 +60,20 @@ pub struct GalleryApp {
     aspect_locked: bool,
     frames: i64,
     color: [f32; 4],
-    captures: HashMap<EditSessionId, Vec<(ParamId, f64)>>,
+    bezier: [f64; 4],
+    shuffled: f64,
+    shuffle_seed: u64,
+    complex: [f64; 2],
+    active_tab: usize,
+    timeline: f64,
+    viewport_offset: [f64; 2],
+    viewport_scale: f64,
+    code: String,
+    floating_open: bool,
+    palette_open: bool,
+    palette_query: String,
+    command_status: String,
+    captures: HashMap<EditSessionId, Vec<ParamSnapshot>>,
     event_log: Vec<String>,
 }
 
@@ -83,6 +103,19 @@ impl Default for GalleryApp {
             aspect_locked: true,
             frames: 24 * 61 + 12,
             color: [0.16, 0.42, 1.0, 1.0],
+            bezier: [0.25, 0.1, 0.25, 1.0],
+            shuffled: 0.42,
+            shuffle_seed: 41,
+            complex: [1.0, -0.5],
+            active_tab: 0,
+            timeline: 42.0,
+            viewport_offset: [-4.0, -2.0],
+            viewport_scale: 18.0,
+            code: "fn ease(t: f32) -> f32 {\n    t * t * (3.0 - 2.0 * t)\n}".to_owned(),
+            floating_open: false,
+            palette_open: false,
+            palette_query: String::new(),
+            command_status: "No command selected".to_owned(),
             captures: HashMap::new(),
             event_log: Vec::new(),
         }
@@ -96,6 +129,19 @@ impl GalleryApp {
         let app = Self::default();
         app.tweeq.theme().install(&creation_context.egui_ctx);
         app
+    }
+
+    fn toggle_theme(&mut self, context: &egui::Context) {
+        self.mode = match self.mode {
+            ColorMode::Light => ColorMode::Dark,
+            ColorMode::Dark => ColorMode::Light,
+        };
+        let theme = match self.mode {
+            ColorMode::Light => TweeqTheme::light(),
+            ColorMode::Dark => TweeqTheme::dark(),
+        };
+        theme.install(context);
+        self.tweeq.set_theme(theme);
     }
 
     #[allow(clippy::too_many_lines)]
@@ -224,6 +270,60 @@ impl GalleryApp {
             });
         });
 
+        section(ui, "Advanced inputs");
+        ui.weak("Cubic Bézier (drag either handle or edit its four values)");
+        CubicBezier::new(BEZIER, &mut self.bezier).show(ui, &mut self.tweeq);
+        parameter_grid(ui, "advanced-gallery", |ui| {
+            row(ui, "Shuffle", |ui| {
+                Shuffle::new(SHUFFLE, &mut self.shuffled, &mut self.shuffle_seed)
+                    .range(-1.0..=1.0)
+                    .show(ui, &mut self.tweeq);
+            });
+            row(ui, "Complex", |ui| {
+                ComplexInput::new(COMPLEX, &mut self.complex).show(ui, &mut self.tweeq);
+            });
+        });
+
+        section(ui, "Workspace primitives");
+        Tabs::new(
+            "workspace-tabs",
+            &mut self.active_tab,
+            &["Timeline", "Viewport", "Code"],
+        )
+        .show(ui);
+        match self.active_tab {
+            0 => {
+                Ruler::new(0.0, 0.3)
+                    .cursor(self.timeline)
+                    .width(560.0)
+                    .show(ui);
+                Timeline::new(TIMELINE, &mut self.timeline, 0.0..=120.0).show(ui, &mut self.tweeq);
+            }
+            1 => {
+                Viewport2D::new(&mut self.viewport_offset, &mut self.viewport_scale).show(ui);
+            }
+            _ => {
+                CodeInput::new(&mut self.code).rows(6).show(ui);
+            }
+        }
+        CollapsingPane::new("Pane adapter notes")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.label(
+                    "Collapsing and floating panes reuse egui persistence and focus behavior.",
+                );
+                ui.label("Docking and split trees stay optional host integrations.");
+            });
+        ui.horizontal(|ui| {
+            if ui.button("Open floating pane").clicked() {
+                self.floating_open = true;
+            }
+            if ui.button("Open command palette (Ctrl+P)").clicked() {
+                self.palette_open = true;
+            }
+            ui.weak(&self.command_status);
+        });
+
         ui.add_space(20.0);
         ui.separator();
         ui.weak("Ctrl/Command-click or Shift-click numeric fields for simultaneous selection.");
@@ -244,27 +344,39 @@ impl GalleryApp {
             EditEvent::Begin {
                 session, targets, ..
             } => {
-                let captured = targets
-                    .into_iter()
-                    .filter_map(|snapshot| match snapshot.value {
-                        ParamValue::Number(value) => Some((snapshot.id, value)),
-                        _ => None,
-                    })
-                    .collect();
-                self.captures.insert(session, captured);
+                self.captures.insert(session, targets);
             }
             EditEvent::Update { session, operation } => {
                 let Some(captured) = self.captures.get(&session).cloned() else {
                     return;
                 };
-                for (id, initial) in captured {
-                    let next = match &operation {
-                        EditOperation::SetNumber(value) => *value,
-                        EditOperation::AddNumber(delta) => initial + delta,
-                        EditOperation::ScaleNumber(scale) => initial * scale,
+                for snapshot in captured {
+                    let next = match (&snapshot.value, &operation) {
+                        (ParamValue::Number(_), EditOperation::SetNumber(value)) => {
+                            ParamValue::Number(*value)
+                        }
+                        (ParamValue::Number(initial), EditOperation::AddNumber(delta)) => {
+                            ParamValue::Number(initial + delta)
+                        }
+                        (ParamValue::Number(initial), EditOperation::ScaleNumber(scale)) => {
+                            ParamValue::Number(initial * scale)
+                        }
+                        (_, EditOperation::SetBoolean(value)) => ParamValue::Boolean(*value),
+                        (_, EditOperation::SetString(value)) => ParamValue::String(value.clone()),
+                        (
+                            ParamValue::Vector { value, dimensions },
+                            EditOperation::AddVector {
+                                delta,
+                                dimensions: operation_dimensions,
+                            },
+                        ) if dimensions == operation_dimensions => ParamValue::Vector {
+                            value: std::array::from_fn(|index| value[index] + delta[index]),
+                            dimensions: *dimensions,
+                        },
+                        (_, EditOperation::SetColor(value)) => ParamValue::Color(*value),
                         _ => continue,
                     };
-                    self.set_number(id, next);
+                    self.set_value(snapshot.id, next);
                 }
             }
             EditEvent::Commit { session } => {
@@ -272,11 +384,35 @@ impl GalleryApp {
             }
             EditEvent::Cancel { session } => {
                 if let Some(captured) = self.captures.remove(&session) {
-                    for (id, value) in captured {
-                        self.set_number(id, value);
+                    for snapshot in captured {
+                        self.set_value(snapshot.id, snapshot.value);
                     }
                 }
             }
+        }
+    }
+
+    fn set_value(&mut self, id: ParamId, value: ParamValue) {
+        match value {
+            ParamValue::Number(value) => self.set_number(id, value),
+            ParamValue::Boolean(value) => match id {
+                CHECKBOX => self.checkbox = value,
+                SWITCH => self.switch = value,
+                TOGGLE => self.toggle = value,
+                _ => {}
+            },
+            ParamValue::String(value) => match id {
+                NAME => self.name = value,
+                DROPDOWN => self.dropdown = value,
+                RADIO => self.radio = value,
+                DRUM => self.drum = value,
+                _ => {}
+            },
+            ParamValue::Vector { value, dimensions } if dimensions >= 2 => {
+                self.set_vector(id, [value[0], value[1]]);
+            }
+            ParamValue::Color(value) if id == COLOR => self.color = value,
+            _ => {}
         }
     }
 
@@ -296,6 +432,30 @@ impl GalleryApp {
             candidate if candidate == SIZE.child(1) => self.size[0] = value,
             candidate if candidate == SIZE.child(2) => self.size[1] = value,
             TIMECODE => self.frames = value.round() as i64,
+            candidate if candidate == BEZIER.child(1) => self.bezier[0] = value,
+            candidate if candidate == BEZIER.child(2) => self.bezier[1] = value,
+            candidate if candidate == BEZIER.child(3) => self.bezier[2] = value,
+            candidate if candidate == BEZIER.child(4) => self.bezier[3] = value,
+            SHUFFLE => self.shuffled = value,
+            candidate if candidate == COMPLEX.child(1) => self.complex[0] = value,
+            candidate if candidate == COMPLEX.child(2) => self.complex[1] = value,
+            TIMELINE => self.timeline = value,
+            _ => {}
+        }
+    }
+
+    fn set_vector(&mut self, id: ParamId, value: [f64; 2]) {
+        match id {
+            POSITION => self.position = value,
+            TRANSLATE => self.translate = value,
+            candidate if candidate == BEZIER.child(101) => {
+                self.bezier[0] = value[0];
+                self.bezier[1] = value[1];
+            }
+            candidate if candidate == BEZIER.child(102) => {
+                self.bezier[2] = value[0];
+                self.bezier[3] = value[1];
+            }
             _ => {}
         }
     }
@@ -304,6 +464,9 @@ impl GalleryApp {
 impl eframe::App for GalleryApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.tweeq.begin_frame();
+        if ui.input(|input| input.modifiers.command && input.key_pressed(egui::Key::P)) {
+            self.palette_open = true;
+        }
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Tweeq for egui");
@@ -312,20 +475,42 @@ impl eframe::App for GalleryApp {
                     ColorMode::Dark => "Light",
                 };
                 if ui.button(label).clicked() {
-                    self.mode = match self.mode {
-                        ColorMode::Light => ColorMode::Dark,
-                        ColorMode::Dark => ColorMode::Light,
-                    };
-                    let theme = match self.mode {
-                        ColorMode::Light => TweeqTheme::light(),
-                        ColorMode::Dark => TweeqTheme::dark(),
-                    };
-                    theme.install(ui.ctx());
-                    self.tweeq.set_theme(theme);
+                    self.toggle_theme(ui.ctx());
                 }
             });
             egui::ScrollArea::vertical().show(ui, |ui| self.gallery(ui));
         });
+
+        let mut floating_open = self.floating_open;
+        FloatingPane::new(
+            "demo-floating-pane",
+            "Floating parameter pane",
+            &mut floating_open,
+        )
+        .show(ui.ctx(), |ui| {
+            ui.label("Host-owned content inside an egui window adapter.");
+            ui.monospace(format!("timeline: {:.2}", self.timeline));
+        });
+        self.floating_open = floating_open;
+
+        if let Some(command) =
+            CommandPalette::new(&mut self.palette_open, &mut self.palette_query, COMMANDS)
+                .show(ui.ctx())
+        {
+            match command {
+                0 => {
+                    self.viewport_offset = [-4.0, -2.0];
+                    self.viewport_scale = 18.0;
+                    "Viewport reset".clone_into(&mut self.command_status);
+                }
+                1 => {
+                    self.toggle_theme(ui.ctx());
+                    "Theme toggled".clone_into(&mut self.command_status);
+                }
+                _ => "Export adapter invoked".clone_into(&mut self.command_status),
+            }
+            self.palette_query.clear();
+        }
 
         let events: Vec<_> = self.tweeq.drain_events().collect();
         for event in events {

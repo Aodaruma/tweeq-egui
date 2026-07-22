@@ -21,7 +21,7 @@ Phase 3までの中核入力を実装し、native/WASMでcheck可能な対話型
 | 1 | 完了 | Cargo workspace、3クレート、CI、最小native/WASMデモ |
 | 2 | 完了 | Number縦切り、型付き編集イベント、選択・gesture・validation |
 | 3 | 完了 | P1/P2入力の基礎実装とパラメーターギャラリー |
-| 4 | 未着手 | 高度入力、ワークスペースUI、拡張点 |
+| 4 | 試作完了 | 高度入力、ワークスペースprimitive、P4 adapter |
 | 5 | 未着手 | Vue比較、互換性判断、切替準備 |
 
 ## 目標
@@ -67,6 +67,7 @@ Phase 3までの中核入力を実装し、native/WASMでcheck可能な対話型
 - [ロードマップ](./roadmap.md): 段階、完了条件、ブランチ運用、公開手順
 - [Phase 2検証記録](./phase-2-number.md): Number縦切りの操作と既知制限
 - [Phase 3検証記録](./phase-3-gallery.md): 中核入力ギャラリーと互換性上の残課題
+- [Phase 4検証記録](./phase-4-workspace.md): 高度入力、workspace primitive、adapter境界
 
 ## 「完全移植」の定義
 

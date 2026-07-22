@@ -1,3 +1,4 @@
+mod advanced;
 mod basic;
 mod choice;
 mod color;
@@ -6,6 +7,7 @@ mod rotary;
 mod timecode;
 mod vector;
 
+pub use advanced::{CodeInput, ComplexInput, CubicBezier, Shuffle};
 pub use basic::{Button, Checkbox, InputGroup, StringInput, Switch, ToggleButton};
 pub use choice::{Dropdown, Drum, Radio};
 pub use color::ColorInput;

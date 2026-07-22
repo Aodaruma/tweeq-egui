@@ -16,6 +16,10 @@ parameters. Number supports click-to-edit, drag-to-tweak, vertical sensitivity,
 Shift/Alt/Q modifiers, explicit commit/cancel events, multi-select, and an
 optional pointer-lock request for unbounded parameters.
 
+Phase 4 examples add CubicBezier, deterministic Shuffle, ComplexInput, tabs,
+rulers, a timeline scrubber, a pan/zoom viewport, floating/collapsing panes,
+a lightweight code input, and a host-owned command palette.
+
 This Phase 3 gallery proves the shared API and edit lifecycle. It is not yet a
 pixel- or shortcut-complete reproduction of the Vue implementation; current
 differences are tracked in `docs/rust-port/phase-3-gallery.md`.
