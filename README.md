@@ -10,6 +10,16 @@
 > [!NOTE]
 > For a live demo of [the UIST paper](https://dl.acm.org/doi/10.1145/3746059.3747723), see [this page](https://baku89.github.io/tweeq/uist2025.html).
 
+## Rust / egui port
+
+This repository is preparing a Rust port of Tweeq for
+[egui](https://github.com/emilk/egui). The existing Vue implementation remains
+the behavioral reference until the Rust implementation reaches the documented
+parity and release gates.
+
+See the [Rust port design](./docs/rust-port/README.md) for the architecture,
+component inventory, migration stages, and crates.io release plan.
+
 Tweeq is a collection of [Vue.js](https://vuejs.org) components for design tools. The components range from fundamental UIs such as numeric sliders, color pickers, to advanced and niche controls like a cubic-bezier editor. It supports various micro-interactions suitable for creative professionals.
 
 It has been continuously developed by the visual artist [Baku Hashimoto](https://baku89.com).
