@@ -403,22 +403,12 @@ impl<'a> Number<'a> {
 
             if arrow != 0.0 {
                 let base = state.buffer.trim().parse::<f64>().unwrap_or(*self.value);
-                let mut increment = if let Some(step) = self.constraints.step {
-                    step * if ui.input(|input| input.modifiers.shift) {
-                        self.snap.max(1.0)
-                    } else {
-                        1.0
-                    }
-                } else {
-                    modifier_speed(ui, self.snap)
-                };
-                if self.constraints.step.is_none()
-                    && let (Some(minimum), Some(maximum)) =
-                        (self.constraints.min, self.constraints.max)
-                    && maximum - minimum <= 1.0
-                {
-                    increment *= 0.1;
-                }
+                let increment = arrow_increment(
+                    self.constraints,
+                    self.snap,
+                    ui.input(|input| input.modifiers.shift),
+                    ui.input(|input| input.modifiers.alt),
+                );
                 let candidate = self
                     .constraints
                     .validate(base + arrow * increment, true)
@@ -778,6 +768,25 @@ fn modifier_speed(ui: &Ui, fast_multiplier: f64) -> f64 {
     fine * fast
 }
 
+fn arrow_increment(
+    constraints: NumberConstraints,
+    fast_multiplier: f64,
+    fast: bool,
+    fine: bool,
+) -> f64 {
+    if let Some(step) = constraints.step {
+        return step * if fast { fast_multiplier.max(1.0) } else { 1.0 };
+    }
+    let mut increment =
+        (if fine { 0.1 } else { 1.0 }) * if fast { fast_multiplier.max(1.0) } else { 1.0 };
+    if let (Some(minimum), Some(maximum)) = (constraints.min, constraints.max)
+        && maximum - minimum <= 1.0
+    {
+        increment *= 0.1;
+    }
+    increment
+}
+
 fn precision_of(value: f64) -> u8 {
     if !value.is_finite() || value == 0.0 {
         return 0;
@@ -832,7 +841,8 @@ fn values_differ(left: f64, right: f64) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_number, format_number_fixed, precision_of};
+    use super::{arrow_increment, format_number, format_number_fixed, precision_of};
+    use tweeq_core::NumberConstraints;
 
     #[test]
     fn formats_without_redundant_zeroes() {
@@ -846,5 +856,20 @@ mod tests {
         assert_eq!(precision_of(1.0), 0);
         assert_eq!(precision_of(0.25), 2);
         assert_eq!(precision_of(0.001), 3);
+    }
+
+    #[test]
+    fn focused_arrow_modifiers_match_vue_semantics() {
+        let unstepped = NumberConstraints::default();
+        assert_eq!(arrow_increment(unstepped, 10.0, false, false), 1.0);
+        assert_eq!(arrow_increment(unstepped, 10.0, true, false), 10.0);
+        assert_eq!(arrow_increment(unstepped, 10.0, false, true), 0.1);
+
+        let stepped = NumberConstraints {
+            step: Some(0.25),
+            ..NumberConstraints::default()
+        };
+        assert_eq!(arrow_increment(stepped, 10.0, false, true), 0.25);
+        assert_eq!(arrow_increment(stepped, 10.0, true, false), 2.5);
     }
 }

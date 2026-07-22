@@ -23,7 +23,24 @@ pub(crate) struct NumberState {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ScalarDragState {
     pub captured: f64,
-    pub last_total: egui::Vec2,
+    pub session: Option<EditSessionId>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum RotaryMode {
+    Absolute,
+    #[default]
+    Relative,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct RotaryState {
+    pub captured: f64,
+    pub local: f64,
+    pub origin: egui::Pos2,
+    pub previous: egui::Pos2,
+    pub current: egui::Pos2,
+    pub pointer_mode: RotaryMode,
     pub session: Option<EditSessionId>,
 }
 
@@ -61,6 +78,7 @@ pub struct TweeqContext {
     previous_order: Vec<ParamId>,
     number_states: HashMap<ParamId, NumberState>,
     scalar_drag_states: HashMap<ParamId, ScalarDragState>,
+    rotary_states: HashMap<ParamId, RotaryState>,
     vector_drag_states: HashMap<ParamId, VectorDragState>,
     events: Vec<EditEvent>,
     next_session: u64,
@@ -79,6 +97,7 @@ impl TweeqContext {
             previous_order: Vec::new(),
             number_states: HashMap::new(),
             scalar_drag_states: HashMap::new(),
+            rotary_states: HashMap::new(),
             vector_drag_states: HashMap::new(),
             events: Vec::new(),
             next_session: 1,
@@ -246,6 +265,14 @@ impl TweeqContext {
 
     pub(crate) fn put_scalar_drag_state(&mut self, id: ParamId, state: ScalarDragState) {
         self.scalar_drag_states.insert(id, state);
+    }
+
+    pub(crate) fn take_rotary_state(&mut self, id: ParamId) -> RotaryState {
+        self.rotary_states.remove(&id).unwrap_or_default()
+    }
+
+    pub(crate) fn put_rotary_state(&mut self, id: ParamId, state: RotaryState) {
+        self.rotary_states.insert(id, state);
     }
 
     pub(crate) fn take_vector_drag_state(&mut self, id: ParamId) -> VectorDragState {

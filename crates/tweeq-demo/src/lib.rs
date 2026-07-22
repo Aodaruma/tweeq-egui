@@ -58,6 +58,10 @@ pub struct GalleryApp {
     pointer_lock: bool,
     rotary: f64,
     angle: f64,
+    angle_snap: f64,
+    angle_offset: f64,
+    angle_disabled: bool,
+    angle_invalid: bool,
     checkbox: bool,
     switch: bool,
     toggle: bool,
@@ -113,6 +117,10 @@ impl Default for GalleryApp {
             pointer_lock: false,
             rotary: 30.0,
             angle: -45.0,
+            angle_snap: 45.0,
+            angle_offset: -90.0,
+            angle_disabled: false,
+            angle_invalid: false,
             checkbox: true,
             switch: false,
             toggle: false,
@@ -265,17 +273,36 @@ impl GalleryApp {
         });
 
         section(ui, "Angles");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("snap");
+            ui.add(egui::DragValue::new(&mut self.angle_snap).speed(1.0));
+            ui.label("angle offset");
+            ui.add(egui::DragValue::new(&mut self.angle_offset).speed(1.0));
+            ui.checkbox(&mut self.angle_disabled, "disabled");
+            ui.checkbox(&mut self.angle_invalid, "invalid");
+        });
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.weak("Rotary");
-                Rotary::new(ROTARY, &mut self.rotary).show(ui, &mut self.tweeq);
+                Rotary::new(ROTARY, &mut self.rotary)
+                    .snap(self.angle_snap)
+                    .angle_offset(self.angle_offset)
+                    .enabled(!self.angle_disabled)
+                    .invalid(self.angle_invalid)
+                    .show(ui, &mut self.tweeq);
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 ui.weak("Angle composition");
-                Angle::new(ANGLE, &mut self.angle).show(ui, &mut self.tweeq);
+                Angle::new(ANGLE, &mut self.angle)
+                    .snap(self.angle_snap)
+                    .angle_offset(self.angle_offset)
+                    .enabled(!self.angle_disabled)
+                    .invalid(self.angle_invalid)
+                    .show(ui, &mut self.tweeq);
             });
         });
+        ui.weak("Drag: rotate · A: absolute · R: relative · Shift/Q or snap ring: snap");
 
         section(ui, "Boolean and actions");
         InputGroup::show(ui, |ui| {
@@ -496,9 +523,7 @@ impl GalleryApp {
             OFFSET_X => self.offset_x = value,
             NUMBER_LAB => self.number_lab = value,
             ROTARY => self.rotary = value,
-            candidate if candidate == ANGLE.child(1) || candidate == ANGLE.child(2) => {
-                self.angle = value;
-            }
+            ANGLE => self.angle = value,
             candidate if candidate == VECTOR.child(1) => self.vector[0] = value,
             candidate if candidate == VECTOR.child(2) => self.vector[1] = value,
             candidate if candidate == VECTOR.child(3) => self.vector[2] = value,
