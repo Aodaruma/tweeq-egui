@@ -43,7 +43,21 @@ sessionの実機確認です。
 - Position / Translate / Vector / Size / CubicBezier
 
 各実装済み範囲と残件は[component parity audit](./component-parity-audit.md)を参照します。
-Color、Popover/Menu、workspace全体は引き続き切替ブロッカーです。
+その後の追加feedback passでは次も実装しました。
+
+- Checkboxのcheck glyphをPainter描画へ変更し、press/swipe中のOFF/ON overlayを追加。
+- Switchのpress/drag中にhandleを横へ伸長。
+- Buttonのfocus/pressed expansionを無効化し、外形寸法を固定。
+- Radioの選択indicatorを補間し、`.animated(bool)`で切替可能にした。
+- Sizeのchainを左右2ループと、link時だけ現れる中央線へ変更。
+- Timeの時計icon、実表示に一致するhit領域、drag単位lock、blur、SMPTE/Frames menuを追加。
+- Colorを専用SV/Hue/Alpha picker、HSV/RGB/HEX、swatches、相対drag overlayへ置換。
+- Cubic Bézierの非hover curveを白、Shuffleをseed連動のdice faceへ変更。
+- Timelineをexclusive editにし、他のNumber選択・focusへ操作を伝播させない。
+
+Vueの`InputComplex`はschema-driven object editorであり、現在のRust `ComplexInput`は
+複素数（Re/Im）専用なので同等ではありません。demo上もRust-onlyと表示し、stable前の
+renameとschema editor新設を監査項目にしました。
 
 ## 比較用アプリ
 
@@ -67,6 +81,8 @@ Vue単体ページは`http://localhost:5173/port-reference.html`で開きます�
 - CubicBezier popupを開いた際に異なるegui Layerの`Response`を結合してpanicする
   問題を修正し、popup表示・handle drag・回帰テストで確認
 - in-app browserでVue単体ページをdesktop幅で目視
+- 追加feedback passでColor popup/swatches/relative drag、Time右クリック切替とblur、
+  Timelineのexclusive editをWindows nativeで操作確認
 
 active overlayはdrag中だけ表示されるため、自動screenshot baselineは今後、合成
 `RawInput`または専用interaction harnessで固定します。

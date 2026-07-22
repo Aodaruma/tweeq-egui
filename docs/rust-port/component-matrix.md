@@ -53,10 +53,10 @@ Phase 5のVue実測後の判定は[互換性評価](./compatibility-report.md)�
 | `InputTranslate` | `Translate` | P2 | Position/Vectorの共通gestureを再利用 |
 | `InputTime` | `Timecode` | P2 | frame rate、SMPTE/frame表示、H/M/S/F/Q操作、drop-frame方針明示 |
 | `InputDrum` | `Drum` | P2 | drag/wheel/key/type-ahead、慣性の決定的テスト |
-| `InputColor`, `GlslCanvas` | `ColorInput` | P2 | HSVA/RGBA、channel shortcut、relative multi-edit、CPU texture |
+| `InputColor`, `GlslCanvas` | `ColorInput` | P2 | HSVA/RGBA、channel shortcut、relative multi-edit、CPU mesh。GPU callbackは任意backend |
 | `InputCubicBezier` | `CubicBezier` | P3 | handle制約、数値入力、curve preview、keyboard代替 |
 | `InputShuffle` | `Shuffle` | P3 | generatorをcoreへ分離し、seed指定で再現可能にする |
-| `InputComplex` | `ComplexInput` | P3 | Number等の合成として実装し独自gestureを増やさない |
+| `InputComplex` | `SchemaInput`（予定） | P3 | Vueはschema-driven object editor。現`ComplexInput`（Re/Im複素数）は別物としてrenameする |
 | `InputCode` | `CodeInput` adapter | P4 | ホスト提供editorとの接続点。Monaco互換を要件にしない |
 
 ## レイアウト・アプリ部品

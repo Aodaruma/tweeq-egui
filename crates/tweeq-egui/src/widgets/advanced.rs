@@ -58,7 +58,7 @@ impl<'a> CubicBezier<'a> {
         let fill = if button.hovered() && self.enabled {
             theme.input_hover
         } else {
-            theme.accent_hover
+            theme.accent
         };
         ui.painter().rect(
             rect,
@@ -80,10 +80,12 @@ impl<'a> CubicBezier<'a> {
             self.value,
             Stroke::new(
                 1.5,
-                if self.enabled {
+                if !self.enabled {
+                    theme.text_muted
+                } else if button.hovered() {
                     theme.accent
                 } else {
-                    theme.text_muted
+                    contrast_color(fill)
                 },
             ),
         );
@@ -358,7 +360,10 @@ impl<'a> Shuffle<'a> {
     pub fn show(self, ui: &mut Ui, context: &mut TweeqContext) -> Response {
         context.register_number(self.id, *self.value);
         ui.horizontal(|ui| {
-            let response = ui.button("Shuffle");
+            let theme = context.theme().clone();
+            let (rect, mut response) =
+                ui.allocate_exact_size(Vec2::splat(theme.input_height), Sense::click());
+            response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
             if response.clicked() {
                 *self.seed = self.seed.wrapping_add(1);
                 let start = *self.range.start();
@@ -369,7 +374,25 @@ impl<'a> Shuffle<'a> {
                     ParamKind::Number,
                     EditOperation::SetNumber(*self.value),
                 );
+                response.mark_changed();
             }
+            let fill = if response.hovered() {
+                theme.accent
+            } else {
+                theme.input
+            };
+            ui.painter()
+                .rect_filled(rect, CornerRadius::same(theme.input_radius), fill);
+            paint_die(
+                ui,
+                rect,
+                die_face(*self.seed),
+                if response.hovered() {
+                    contrast_color(fill)
+                } else {
+                    theme.accent
+                },
+            );
             ui.monospace(format!("{:.4} · seed {}", *self.value, *self.seed));
             response
         })
@@ -377,7 +400,66 @@ impl<'a> Shuffle<'a> {
     }
 }
 
-/// Two-number complex input assembled from the shared Number primitive.
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_sign_loss)]
+fn die_face(seed: u64) -> u8 {
+    (seeded_unit(seed, 0xD1CE) * 6.0).floor().clamp(0.0, 5.0) as u8 + 1
+}
+
+#[allow(clippy::float_cmp)]
+fn paint_die(ui: &Ui, rect: Rect, face: u8, color: Color32) {
+    let die = rect.shrink(5.0);
+    ui.painter().rect_stroke(
+        die,
+        CornerRadius::same(3),
+        Stroke::new(1.2, color),
+        StrokeKind::Inside,
+    );
+    let left = die.left() + die.width() * 0.27;
+    let right = die.right() - die.width() * 0.27;
+    let top = die.top() + die.height() * 0.27;
+    let bottom = die.bottom() - die.height() * 0.27;
+    let positions: &[(f32, f32)] = match face {
+        1 => &[(0.5, 0.5)],
+        2 => &[(0.0, 1.0), (1.0, 0.0)],
+        3 => &[(0.0, 1.0), (0.5, 0.5), (1.0, 0.0)],
+        4 => &[(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)],
+        5 => &[(0.0, 0.0), (1.0, 0.0), (0.5, 0.5), (0.0, 1.0), (1.0, 1.0)],
+        _ => &[
+            (0.0, 0.0),
+            (1.0, 0.0),
+            (0.0, 0.5),
+            (1.0, 0.5),
+            (0.0, 1.0),
+            (1.0, 1.0),
+        ],
+    };
+    for &(x, y) in positions {
+        ui.painter().circle_filled(
+            Pos2::new(egui::lerp(left..=right, x), egui::lerp(top..=bottom, y)),
+            if x == 0.5 && y == 0.5 { 1.45 } else { 1.25 },
+            color,
+        );
+    }
+}
+
+fn contrast_color(background: Color32) -> Color32 {
+    let luminance = 0.299 * f32::from(background.r())
+        + 0.587 * f32::from(background.g())
+        + 0.114 * f32::from(background.b());
+    if luminance > 150.0 {
+        Color32::BLACK
+    } else {
+        Color32::WHITE
+    }
+}
+
+/// Rust-only complex-number input assembled from the shared Number primitive.
+///
+/// This is not equivalent to Vue Tweeq's `InputComplex`, which is a
+/// schema-driven editor for heterogeneous object fields. The name is retained
+/// during the prototype phase for API compatibility and will be reconsidered
+/// before the first stable release.
 pub struct ComplexInput<'a> {
     id: ParamId,
     value: &'a mut [f64; 2],
@@ -442,7 +524,7 @@ impl<'a> CodeInput<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{CubicBezier, curve_to_screen, quantize_bezier, screen_to_curve};
+    use super::{CubicBezier, curve_to_screen, die_face, quantize_bezier, screen_to_curve};
     use crate::TweeqContext;
     use egui::{Pos2, Rect};
     use tweeq_core::ParamId;
@@ -460,6 +542,13 @@ mod tests {
         let curve = screen_to_curve(rect, screen);
         assert!((curve[0] - 0.25).abs() < 1.0e-6);
         assert!((curve[1] - 0.75).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn die_faces_are_deterministic_and_bounded() {
+        let faces: Vec<_> = (0..100).map(die_face).collect();
+        assert!(faces.iter().all(|face| (1..=6).contains(face)));
+        assert_eq!(faces, (0..100).map(die_face).collect::<Vec<_>>());
     }
 
     #[test]

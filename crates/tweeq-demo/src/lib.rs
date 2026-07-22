@@ -69,6 +69,7 @@ pub struct GalleryApp {
     name: String,
     dropdown: String,
     radio: String,
+    radio_animated: bool,
     drum: String,
     position: [f64; 2],
     translate: [f64; 2],
@@ -128,6 +129,7 @@ impl Default for GalleryApp {
             name: "Baby salmon".to_owned(),
             dropdown: "Apple".to_owned(),
             radio: "Banana".to_owned(),
+            radio_animated: true,
             drum: "Cherry".to_owned(),
             position: [24.0, -12.0],
             translate: [-18.0, 32.0],
@@ -326,7 +328,10 @@ impl GalleryApp {
                 Dropdown::new(DROPDOWN, &mut self.dropdown, FRUIT).show(ui, &mut self.tweeq);
             });
             row(ui, "Radio", |ui| {
-                Radio::new(RADIO, &mut self.radio, &FRUIT[..3]).show(ui, &mut self.tweeq);
+                Radio::new(RADIO, &mut self.radio, &FRUIT[..3])
+                    .animated(self.radio_animated)
+                    .show(ui, &mut self.tweeq);
+                ui.checkbox(&mut self.radio_animated, "animate");
             });
             row(ui, "Drum", |ui| {
                 Drum::new(DRUM, &mut self.drum, FRUIT).show(ui, &mut self.tweeq);
@@ -378,10 +383,13 @@ impl GalleryApp {
                     .range(-1.0..=1.0)
                     .show(ui, &mut self.tweeq);
             });
-            row(ui, "Complex", |ui| {
+            row(ui, "Complex number (Rust-only)", |ui| {
                 ComplexInput::new(COMPLEX, &mut self.complex).show(ui, &mut self.tweeq);
             });
         });
+        ui.weak(
+            "Vue InputComplex is a schema-driven object editor; this Re/Im sample is a Rust-only complex-number control.",
+        );
 
         section(ui, "Workspace primitives");
         Tabs::new(
