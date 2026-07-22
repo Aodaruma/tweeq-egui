@@ -1,70 +1,72 @@
-# 公開・切替チェックリスト
+# Release and Rust-only switch checklist
 
-## `0.1.0-alpha.1` preview
+## `0.1.0-alpha.1`
 
-| 項目 | 2026-07-22 | 備考 |
+| Gate | 2026-07-22 | Notes |
 |---|---|---|
-| `cargo fmt --all --check` | 成功 | workspace全体 |
-| clippy `-D warnings` | 成功 | all targets/features |
-| native tests | 成功 | core 12、egui 5、doc testsを含む |
-| WASM check | 成功 | core/egui、同一公開API |
-| Windows native操作 | 成功 | Phase 2〜4記録参照 |
-| Vue unit test | 成功 | 4件 |
-| VuePress build | 警告付き成功 | SSR例外と循環chunk警告あり |
-| crate README/rustdoc | 準備済み | 最小Number例をdoc test化 |
-| LICENSE/NOTICE/CITATION | 準備済み | 原著作権表示を維持 |
-| `tweeq-core` package/verify | 成功 | crate単体で再コンパイル成功 |
-| `tweeq-egui` package list | 成功 | core未公開のためpackage/verifyは順序待ち |
-| crates.io名称 | 検索結果なし | `cargo search tweeq`。予約は保証しない |
-| Linux/macOS native実機 | 未実施 | alpha既知制限 |
-| WASMブラウザー実機 | 未実施 | alpha既知制限 |
+| `cargo fmt --all --check` | Pass | Entire workspace |
+| clippy `-D warnings` | Pass | All targets and features |
+| native tests | Pass | Core, egui, demo, and doc tests |
+| Rust 1.92 MSRV | Pass | check, test, and clippy; fixed CI job added |
+| WASM check | Pass | Same public widget API |
+| rustdoc `-D warnings` | Pass | `tweeq-core` and `tweeq-egui` |
+| native Windows interaction | Pass | Phase 2–5 records |
+| native Linux/macOS interaction | Pending | Documented alpha limitation |
+| WASM browser matrix | Pending | Documented alpha limitation |
+| LICENSE/NOTICE/CITATION | Pass | Original copyright retained |
+| `tweeq-core` package/dry-run | Pass | Rebuilds from packaged source |
+| `tweeq-egui` package list | Pass | Full dry-run waits for core registry publication |
+| crates.io names | Available at check time | Search is not a reservation |
 
-検証コマンド:
+Canonical local gates:
 
 ```sh
 cargo fmt --all --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-features
-cargo check -p tweeq-core -p tweeq-egui --target wasm32-unknown-unknown --all-features
-cargo package -p tweeq-core --allow-dirty
-cargo package -p tweeq-egui --allow-dirty --list
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
+cargo check --workspace --all-features --locked --target wasm32-unknown-unknown
+RUSTDOCFLAGS="-D warnings" cargo doc -p tweeq-core -p tweeq-egui --all-features --no-deps --locked
+cargo publish -p tweeq-core --dry-run --locked
+cargo package -p tweeq-egui --list --locked
 ```
 
-`tweeq-egui`のpackage/verifyは、version固定された`tweeq-core`がcrates.ioへ公開された後に行います。
-公開順はcore、registry反映確認、eguiです。`tweeq-demo`はpublishしません。
+## Phase 6: Rust-only main
 
-## SemVerとMSRV
+Status: **Go / implemented on `codex/rust-egui-port`**.
 
-- preview: `0.1.0-alpha.N`。API互換を保証せず、変更をCHANGELOGへ記録する。
-- 最初の安定候補: 全切替ブロッカーの解消後に`0.1.0`。
-- MSRV: 1.92。CIで固定toolchainも追加してから公開する。
-- default feature: 現在は追加featureなし。renderer固有機能をdefaultへ入れない。
-- `eframe`はdemoのみ。`tweeq-egui`は`egui`と`tweeq-core`だけに依存する。
+- [x] Phase 5 differences were fixed or accepted as explicit alpha limitations.
+- [x] `vue-final-reference` annotated tag records the final bundled Vue commit.
+- [x] Vue, Vite, VuePress, package manager files, and Node CI were removed.
+- [x] Root README now leads with Rust installation and API usage.
+- [x] The native/WASM gallery and rustdoc replace the executable Vue docs.
+- [x] Build, test, docs, and gallery generation require only Rust tooling.
+- [x] Rust-only CI covers stable, MSRV 1.92, WASM, rustdoc, and package contents.
 
-## Phase 6: main完全Rust化のGo/No-Go
+The remaining Size icon detail and unfilled cross-platform interaction matrix are
+documented alpha limitations, not silent compatibility claims. See
+[Phase 6 switch record](./phase-6-rust-switch.md).
 
-現在は**No-Go**です。次がすべて完了した時点でGoへ変更します。
+## Phase 7: crates.io publication
 
-- [ ] 互換性評価の切替ブロッカーを解消、または非対応として利用者合意を得る。
-- [ ] Windows、macOS、Linuxでnative操作表を埋める。
-- [ ] Chrome、Firefox、Safari系でWASM操作表を埋める。
-- [ ] native/WASMギャラリーをRustドキュメントの正式入口にする。
-- [ ] `vue-final-reference`注釈付きtagを切替直前のVue commitへ作成する。
-- [ ] Vue削除PRで機能追加を行わない。
-- [ ] Node.jsなしのclean checkoutでbuild/test/docs/demoを生成できる。
-- [ ] root README、GitHub Pages、release workflowをRustへ切り替える。
+Status: **repository preparation complete; registry publication pending**.
 
-削除は`src`、VuePress/Vite、`package.json`、lockfile、Node CIを対象としますが、
-`LICENSE`、`NOTICE.md`、`CITATION.cff`、論文・設計背景、Vue参照tagは保持します。
+Publication is intentionally split to avoid a partially verified two-crate
+release:
 
-## crates.io公開時の最終手順
+1. Merge or otherwise make the release commit available in the public repository.
+2. Confirm `tweeq-core` and `tweeq-egui` are still unclaimed.
+3. Run all gates on a clean release commit.
+4. Publish `tweeq-core` after its dry-run.
+5. Wait until `cargo info tweeq-core@0.1.0-alpha.1` resolves.
+6. Package and dry-run `tweeq-egui`, then publish it.
+7. Push `v0.1.0-alpha.1`, create the GitHub Release, and confirm docs.rs.
+8. Confirm the Rust WASM gallery and API docs on GitHub Pages.
 
-1. `cargo search tweeq`とcrates.io画面で名称を再確認する。
-2. clean worktreeで上記検証を再実行する。
-3. `cargo package --list`でVue資産がcrateへ混入していないことを確認する。
-4. `tweeq-core`をdry-run後に公開する。
-5. registry反映後、`tweeq-egui`をdry-run・公開する。
-6. tag、GitHub Release、docs.rs、WASM galleryを確認する。
+`.github/workflows/release.yml` requires an exact version confirmation, defaults
+to dry-run, protects real publication with the `crates-io` environment, and
+publishes one crate per invocation. Configure `CARGO_REGISTRY_TOKEN` only in
+that protected environment.
 
-publish、tag push、main削除は外部・共有状態を変更するため、実行時に改めて明示的な指示を
-受けてから行います。
+Cargo packages cannot be overwritten or deleted. If core needs a correction
+after publication, bump both workspace crates to the next alpha before
+publishing the dependent crate.

@@ -18,7 +18,8 @@ Tweeqの移植単位はVueコンポーネントではなく、次の操作意味
 
 ## ワークスペース構成
 
-最初のRust実装では、Vue版を残したままルートへCargo workspaceを追加します。
+Phase 1ではVue版を残したままルートへCargo workspaceを追加しました。Phase 6以降は
+Rust-only workspaceとし、旧実装は`vue-final-reference` tagで参照します。
 
 ```text
 Cargo.toml
@@ -278,4 +279,4 @@ snapshot差分だけで操作互換性を判定せず、値とイベント列を
 - [egui `Response`](https://docs.rs/egui/latest/egui/response/struct.Response.html)
 - [egui `Sense`](https://docs.rs/egui/latest/egui/struct.Sense.html)
 - [eframe](https://docs.rs/eframe/latest/eframe/)
-- Vue参照実装: このリポジトリの`src/`と`docs/`
+- Vue参照実装: `vue-final-reference` tagの`src/`と`docs/`、およびupstream

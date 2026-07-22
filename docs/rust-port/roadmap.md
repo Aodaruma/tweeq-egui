@@ -1,5 +1,9 @@
 # 移植ロードマップ
 
+> 2026-07-22更新: Phase 6のRust-only切替とPhase 7の公開準備まで完了しました。
+> この文書の「残したまま」「削除前」という表現は、各phaseを実行した当時の手順を
+> 記録するものです。現在の参照実装は`vue-final-reference` tagにあります。
+
 ## 基本方針
 
 Vue版は移植中の実行可能な仕様書です。Rust版の縦切りを一つずつ完成させ、比較試験が
@@ -116,6 +120,8 @@ README/CI/build入口の切替だけをレビューできるようにします�
 
 ## Phase 6: `main`の完全Rust化
 
+状態: 完了（release branch。main反映はmerge時）
+
 削除対象:
 
 - `src/**/*.vue`, `src/**/*.ts`
@@ -137,6 +143,9 @@ Exit gate:
 - リポジトリ内に実行時・build時のVue/npm依存が残っていない。
 
 ## Phase 7: crates.io公開
+
+状態: metadata、CI、分割release workflow、core dry-runまで完了。registryへの不可逆な
+publish、release tag、GitHub Releaseは公開commitの確定後に行う。
 
 主クレート名は`tweeq-egui`を候補とします。
 2026-07-22時点の`cargo search tweeq`では

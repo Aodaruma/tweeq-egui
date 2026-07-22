@@ -67,11 +67,13 @@ renameとschema editor新設を監査項目にしました。
 
 Rust galleryにはInputNumberの全propsとInputAngleのsnap/offset/stateを変更できる欄を
 追加しました。theme切替、設定値、pane/palette起動を含む全操作部品もTweeq libraryの
-componentへ統一しています。また、VuePressのnavigationや説明を除いたVue単体ページを
+componentへ統一しています。また、`vue-final-reference` tagにはVuePressのnavigationや説明を除いたVue単体ページを
 追加しました。
 
 ```sh
 cargo run -p tweeq-demo
+git worktree add ../tweeq-vue-reference vue-final-reference
+cd ../tweeq-vue-reference
 npm run dev:reference
 ```
 

@@ -766,6 +766,21 @@ fn row(ui: &mut egui::Ui, label: &str, contents: impl FnOnce(&mut egui::Ui)) {
 mod web {
     use wasm_bindgen::prelude::*;
 
+    /// Starts the gallery when the Trunk-generated module is loaded.
+    #[wasm_bindgen(start)]
+    pub async fn start_gallery() -> Result<(), JsValue> {
+        let window = web_sys::window().ok_or_else(|| JsValue::from_str("window is unavailable"))?;
+        let document = window
+            .document()
+            .ok_or_else(|| JsValue::from_str("document is unavailable"))?;
+        let canvas = document
+            .get_element_by_id("tweeq_canvas")
+            .ok_or_else(|| JsValue::from_str("#tweeq_canvas was not found"))?
+            .dyn_into::<web_sys::HtmlCanvasElement>()?;
+
+        WebHandle::new().start(canvas).await
+    }
+
     /// JavaScript handle for the eframe WASM application.
     #[derive(Clone)]
     #[wasm_bindgen]

@@ -89,12 +89,14 @@ keyboard経路を大幅に更新しましたが、複数選択・式入力・OS�
 | `Markdown` | なし | 未対応 | 汎用Markdownは移植対象外候補。demo docsは別crate/host責務にする |
 | `MonacoEditor` | `CodeInput` adapter | 近似 | Monaco完全移植は対象外候補。host editor接続interfaceとexampleを用意する |
 
-## Vue単体リファレンスページ
+## Vue単体リファレンスページ（archived）
 
-`port-reference.html`はVuePressの説明・navigationを含まず、既存Vueコンポーネントだけを
+`vue-final-reference` tagの`port-reference.html`はVuePressの説明・navigationを含まず、既存Vueコンポーネントだけを
 並べた比較用ページです。次で起動します。
 
 ```sh
+git worktree add ../tweeq-vue-reference vue-final-reference
+cd ../tweeq-vue-reference
 npm run dev:reference
 ```
 

@@ -1,5 +1,12 @@
 # Phase 5: Vue / Rust互換性評価
 
+> この文書の表はPhase 5開始時点のhistorical snapshotです。その後のparity passで
+> Number、Angle/Rotary、Boolean、Timecode、Color、choice、geometry、advanced inputを
+> 改善しました。2026-07-22、InputSize icon等の既知差分をalpha制限として受け入れ、
+> Phase 6のRust-only切替へ進みました。最新判断は
+> [Phase 6切替記録](./phase-6-rust-switch.md)と
+> [component parity監査](./component-parity-audit.md)を参照してください。
+
 ## 結論
 
 - `tweeq-core`と`tweeq-egui`は`0.1.0-alpha.1`のpreview候補としてpackage検証へ進める。

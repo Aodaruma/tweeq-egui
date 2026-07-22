@@ -4,13 +4,13 @@
 
 この文書群は、TweeqのVue実装をRustへ再設計し、最終的に
 `tweeq-egui`としてcrates.ioへ公開するための基準を定めるものです。
-Phase 5の比較評価と主要入力のparity passまで実施し、native/WASMでcheck可能な
-対話型ギャラリーを用意しています。Vue版は、切替ブロッカーが解消するまで比較基準
-として維持します。
+Phase 5の比較評価と主要入力のparity passを完了し、Phase 6でリポジトリを
+Rust-onlyへ切り替えました。native/WASMの対話型ギャラリーとrustdocが正式な
+ドキュメント入口です。
 
 - 作業ブランチ: `codex/rust-egui-port`
-- 参照実装: Vue版 `main`
-- 参照基準コミット: `82205f396bc8f3b3eb16a2c6202681e6d71e1ae6`
+- 参照実装: upstream Vue版と注釈付きtag `vue-final-reference`
+- 最終参照コミット: `ab8e7aa6942b5a016c565dd4dc26b6d36130a17a`
 - 基準日: 2026-07-22
 - ライセンス: MIT（Baku Hashimotoによる原著作権表示を維持する）
 
@@ -25,6 +25,8 @@ Phase 5の比較評価と主要入力のparity passまで実施し、native/WASM
 | 4 | 試作完了 | 高度入力、ワークスペースprimitive、P4 adapter |
 | 5 | 評価完了 | Vue比較、互換性分類、公開/切替チェックリスト（切替はNo-Go） |
 | 5 follow-up | 実装・評価済み | Number/Angle active UI、主要入力のparity pass、Vue単体比較ページ |
+| 6 | 完了 | Vue/Node削除、Rust-first README、Trunk gallery、rustdoc Pages、Rust-only CI |
+| 7 | 公開準備完了 | crate metadata、MSRV/release gate、分割publish workflow、dry-run手順 |
 
 ## 目標
 
@@ -60,7 +62,7 @@ Phase 5の比較評価と主要入力のparity passまで実施し、native/WASM
 | オーバーレイ | eguiのforeground layerへ描画し、DOM top layerは移植しない |
 | Color描画 | 最初はCPU生成テクスチャ、必要性を計測後にGPU callbackを検討する |
 | 式入力 | JavaScript `eval`は移植せず、制限付きパーサーを任意機能として実装する |
-| Vue削除 | [ロードマップ](./roadmap.md)の切替ゲート通過後にのみ行う |
+| Vue参照 | mainへ併設せず、`vue-final-reference` tagとupstreamで固定参照する |
 
 ## 文書
 
@@ -73,6 +75,7 @@ Phase 5の比較評価と主要入力のparity passまで実施し、native/WASM
 - [互換性評価](./compatibility-report.md): Vue実測比較、移植/代替/制限/ブロッカー判定
 - [全component parity監査](./component-parity-audit.md): 実装済み範囲と残件の最新一覧
 - [Input parity pass](./phase-5-parity-pass.md): Number/Angleと主要入力の再現改善・検証記録
+- [Phase 6切替記録](./phase-6-rust-switch.md): Rust-only化の範囲、受入差分、復元方法
 - [公開・切替チェックリスト](./release-checklist.md): crates.io previewとmain完全Rust化の条件
 
 ## 「完全移植」の定義

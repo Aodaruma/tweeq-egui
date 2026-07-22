@@ -1,9 +1,8 @@
 Tweeq was created and continuously developed by Baku Hashimoto.
 
-This crate is part of a Rust/egui port of the MIT-licensed Vue/TypeScript
-reference implementation. It preserves the project name, interaction research,
-design principles, and selected behavior from the original implementation. It
-is not currently a feature-complete or pixel-identical replacement.
+This crate is part of a Rust/egui port of the MIT-licensed Tweeq reference
+implementation. It preserves the project name, interaction research, design
+principles, and selected behavior from the original implementation.
 
-See the repository NOTICE.md and docs/rust-port/compatibility-report.md for
-attribution and the precise port status.
+See https://github.com/Aodaruma/tweeq-egui for attribution, the final
+`vue-final-reference` tag, and the precise alpha compatibility status.
