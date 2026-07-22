@@ -1,0 +1,14 @@
+[package]
+name = "tweeq-core"
+description = "Renderer-independent interaction semantics for Tweeq parameter widgets"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["gui", "widgets", "parameter", "creative-tools"]
+categories = ["gui"]
+
+[lints]
+workspace = true

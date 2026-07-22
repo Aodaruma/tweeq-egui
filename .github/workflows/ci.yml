@@ -1,11 +1,42 @@
-name: Unit Test / Linting
-on: push
+name: CI
+
+on:
+  push:
+  pull_request:
+
 jobs:
-  build:
+  vue:
+    name: Vue reference
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
       - name: Install modules
-        run: yarn
+        run: yarn --frozen-lockfile
       - name: Run tests
         run: yarn test
+
+  rust-native:
+    name: Rust native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --all-features
+
+  rust-wasm:
+    name: Rust WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - run: cargo check --workspace --all-features --target wasm32-unknown-unknown

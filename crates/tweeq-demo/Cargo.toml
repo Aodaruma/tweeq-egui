@@ -1,0 +1,29 @@
+[package]
+name = "tweeq-demo"
+description = "Interactive native and WASM gallery for tweeq-egui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lib]
+name = "tweeq_demo_lib"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+eframe.workspace = true
+tweeq-egui.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.105"
+wasm-bindgen-futures = "0.4.55"
+web-sys = { version = "0.3.82", features = ["HtmlCanvasElement"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+eframe = { workspace = true, features = ["wayland", "x11"] }
+
+[lints]
+workspace = true
