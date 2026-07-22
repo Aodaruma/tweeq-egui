@@ -19,6 +19,20 @@ pub(crate) struct NumberState {
     pub virtual_position: Option<egui::Pos2>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ScalarDragState {
+    pub captured: f64,
+    pub last_total: egui::Vec2,
+    pub session: Option<EditSessionId>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct VectorDragState {
+    pub captured: [f64; 2],
+    pub last_total: egui::Vec2,
+    pub session: Option<EditSessionId>,
+}
+
 impl NumberState {
     pub fn new(value: f64, buffer: String) -> Self {
         Self {
@@ -44,6 +58,8 @@ pub struct TweeqContext {
     current_order: Vec<ParamId>,
     previous_order: Vec<ParamId>,
     number_states: HashMap<ParamId, NumberState>,
+    scalar_drag_states: HashMap<ParamId, ScalarDragState>,
+    vector_drag_states: HashMap<ParamId, VectorDragState>,
     events: Vec<EditEvent>,
     next_session: u64,
 }
@@ -60,6 +76,8 @@ impl TweeqContext {
             current_order: Vec::new(),
             previous_order: Vec::new(),
             number_states: HashMap::new(),
+            scalar_drag_states: HashMap::new(),
+            vector_drag_states: HashMap::new(),
             events: Vec::new(),
             next_session: 1,
         }
@@ -102,6 +120,33 @@ impl TweeqContext {
     pub(crate) fn register_number(&mut self, id: ParamId, value: f64) {
         self.register(id, ParamKind::Number);
         self.known_values.insert(id, ParamValue::Number(value));
+    }
+
+    pub(crate) fn register_boolean(&mut self, id: ParamId, value: bool) {
+        self.register(id, ParamKind::Boolean);
+        self.known_values.insert(id, ParamValue::Boolean(value));
+    }
+
+    pub(crate) fn register_string(&mut self, id: ParamId, value: &str) {
+        self.register(id, ParamKind::String);
+        self.known_values
+            .insert(id, ParamValue::String(value.to_owned()));
+    }
+
+    pub(crate) fn register_vector(&mut self, id: ParamId, value: [f64; 2]) {
+        self.register(id, ParamKind::Vector);
+        self.known_values.insert(
+            id,
+            ParamValue::Vector {
+                value: [value[0], value[1], 0.0, 0.0],
+                dimensions: 2,
+            },
+        );
+    }
+
+    pub(crate) fn register_color(&mut self, id: ParamId, value: [f32; 4]) {
+        self.register(id, ParamKind::Color);
+        self.known_values.insert(id, ParamValue::Color(value));
     }
 
     pub(crate) fn activate_selection(
@@ -166,6 +211,18 @@ impl TweeqContext {
         });
     }
 
+    pub(crate) fn immediate_edit(
+        &mut self,
+        source: ParamId,
+        kind: ParamKind,
+        operation: EditOperation,
+    ) {
+        self.activate_selection(source, kind, false, false);
+        let session = self.start_edit(source, kind);
+        self.update_edit(session, operation);
+        self.finish_edit(session, true);
+    }
+
     pub(crate) fn take_number_state(
         &mut self,
         id: ParamId,
@@ -179,6 +236,22 @@ impl TweeqContext {
 
     pub(crate) fn put_number_state(&mut self, id: ParamId, state: NumberState) {
         self.number_states.insert(id, state);
+    }
+
+    pub(crate) fn take_scalar_drag_state(&mut self, id: ParamId) -> ScalarDragState {
+        self.scalar_drag_states.remove(&id).unwrap_or_default()
+    }
+
+    pub(crate) fn put_scalar_drag_state(&mut self, id: ParamId, state: ScalarDragState) {
+        self.scalar_drag_states.insert(id, state);
+    }
+
+    pub(crate) fn take_vector_drag_state(&mut self, id: ParamId) -> VectorDragState {
+        self.vector_drag_states.remove(&id).unwrap_or_default()
+    }
+
+    pub(crate) fn put_vector_drag_state(&mut self, id: ParamId, state: VectorDragState) {
+        self.vector_drag_states.insert(id, state);
     }
 }
 

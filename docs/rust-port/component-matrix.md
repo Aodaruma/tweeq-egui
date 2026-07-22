@@ -10,10 +10,10 @@
 
 進捗は`未着手`、`設計中`、`実装中`、`検証中`、`完了`のいずれかで更新します。
 
-Phase 2時点では`validator.ts`、`useDrag.ts`、`stores/multiSelect.ts`、
-`InputTextBase`、`TweakOverlay`、theme/contextの基盤と`InputNumber`を実装済みです。
-OS別Pointer Lockと同時編集の複合UI検証を残すため、基盤行の最終的な`完了`判定は
-Phase 5で行います。
+Phase 3時点では基盤と`Number`に加え、P1/P2入力を対話型ギャラリーへ配置しました。
+この段階の目的はAPI・値保存形式・操作primitiveの共通化であり、Vue版の全ショートカットや
+視覚効果との完全一致ではありません。個別の差異とPhase 5での判定は
+[Phase 3検証記録](./phase-3-gallery.md)を参照してください。
 
 ## 基盤
 

@@ -30,6 +30,13 @@ impl ParamId {
     pub const fn as_u64(self) -> u64 {
         self.0
     }
+
+    /// Derives a stable child ID for a component or sub-control.
+    #[must_use]
+    pub const fn child(self, discriminator: u64) -> Self {
+        let mixed = self.0 ^ discriminator.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        Self(mixed.wrapping_mul(0xbf58_476d_1ce4_e5b9))
+    }
 }
 
 impl fmt::Debug for ParamId {

@@ -12,4 +12,8 @@ pub use tweeq_core as core;
 pub use tweeq_core::{
     EditEvent, EditOperation, EditSessionId, ParamId, ParamKind, ParamSnapshot, ParamValue,
 };
-pub use widgets::{Number, PointerPolicy, TweakResponse};
+pub use widgets::{
+    Angle, Button, Checkbox, ColorInput, Dropdown, Drum, InputGroup, Number, PointerPolicy,
+    Position, Radio, Rotary, Size, StringInput, Switch, Timecode, ToggleButton, Translate,
+    TweakResponse, Vector,
+};
