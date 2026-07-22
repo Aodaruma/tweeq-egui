@@ -204,9 +204,10 @@ impl GalleryApp {
         clippy::cast_sign_loss
     )]
     fn gallery(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(10.0);
+        ui.add_space(16.0);
         ui.label("Interactive parameter gallery");
-        ui.label("Shift: fast · Alt: fine · Q: snap · Enter: commit · Escape: cancel");
+        ui.weak("Shift: fast · Alt: fine · Q: snap · Enter: commit · Escape: cancel");
+        ui.add_space(8.0);
         Checkbox::new(
             POINTER_LOCK_SETTING,
             &mut self.pointer_lock,
@@ -370,7 +371,9 @@ impl GalleryApp {
             Checkbox::new(ANGLE_INVALID_SETTING, &mut self.angle_invalid, "invalid")
                 .show(ui, &mut self.tweeq);
         });
+        ui.add_space(14.0);
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 32.0;
             ui.vertical(|ui| {
                 ui.weak("Rotary");
                 Rotary::new(ROTARY, &mut self.rotary)
@@ -394,14 +397,22 @@ impl GalleryApp {
         ui.weak("Drag: rotate · A: absolute · R: relative · Shift/Q or snap ring: snap");
 
         section(ui, "Boolean and actions");
-        InputGroup::show(ui, |ui| {
-            Checkbox::new(CHECKBOX, &mut self.checkbox, "Checkbox").show(ui, &mut self.tweeq);
-            Switch::new(SWITCH, &mut self.switch, "Switch").show(ui, &mut self.tweeq);
-            ToggleButton::new(TOGGLE, &mut self.toggle, "Toggle").show(ui, &mut self.tweeq);
-            if Button::new("Action").show(ui).clicked() {
-                self.button_count += 1;
-            }
-            ui.weak(format!("{} clicks", self.button_count));
+        parameter_grid(ui, "boolean-gallery", |ui| {
+            row(ui, "Checkbox", |ui| {
+                Checkbox::new(CHECKBOX, &mut self.checkbox, "Checkbox").show(ui, &mut self.tweeq);
+            });
+            row(ui, "Switch", |ui| {
+                Switch::new(SWITCH, &mut self.switch, "Switch").show(ui, &mut self.tweeq);
+            });
+            row(ui, "Toggle button", |ui| {
+                ToggleButton::new(TOGGLE, &mut self.toggle, "Toggle").show(ui, &mut self.tweeq);
+            });
+            row(ui, "Button", |ui| {
+                if Button::new("Action").show(ui).clicked() {
+                    self.button_count += 1;
+                }
+                ui.weak(format!("{} clicks", self.button_count));
+            });
         });
 
         section(ui, "Text and choices");
@@ -428,6 +439,7 @@ impl GalleryApp {
 
         section(ui, "Vectors and geometry");
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 32.0;
             ui.vertical(|ui| {
                 ui.weak("Position (drag pad)");
                 Position::new(POSITION, &mut self.position).show(ui, &mut self.tweeq);
@@ -437,6 +449,7 @@ impl GalleryApp {
                 Translate::new(TRANSLATE, &mut self.translate).show(ui, &mut self.tweeq);
             });
         });
+        ui.add_space(14.0);
         parameter_grid(ui, "vector-gallery", |ui| {
             row(ui, "Vector 3", |ui| {
                 Vector::new(VECTOR, &mut self.vector).show(ui, &mut self.tweeq);
@@ -464,7 +477,9 @@ impl GalleryApp {
 
         section(ui, "Advanced inputs");
         ui.weak("Cubic Bézier (drag either handle or edit its four values)");
+        ui.add_space(8.0);
         CubicBezier::new(BEZIER, &mut self.bezier).show(ui, &mut self.tweeq);
+        ui.add_space(14.0);
         parameter_grid(ui, "advanced-gallery", |ui| {
             row(ui, "Shuffle", |ui| {
                 Shuffle::new(SHUFFLE, &mut self.shuffled, &mut self.shuffle_seed)
@@ -486,6 +501,7 @@ impl GalleryApp {
             &["Timeline", "Viewport", "Code"],
         )
         .show(ui);
+        ui.add_space(12.0);
         match self.active_tab {
             0 => {
                 Ruler::new(0.0, 0.3)
@@ -522,8 +538,9 @@ impl GalleryApp {
             ui.weak(&self.command_status);
         });
 
-        ui.add_space(20.0);
+        ui.add_space(32.0);
         ui.separator();
+        ui.add_space(8.0);
         ui.weak("Ctrl/Command-click or Shift-click numeric fields for simultaneous selection.");
         CollapsingPane::new("Recent edit events")
             .default_open(false)
@@ -686,17 +703,23 @@ impl eframe::App for GalleryApp {
             self.palette_open = true;
         }
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.heading("Tweeq for egui");
-                let label = match self.mode {
-                    ColorMode::Light => "Dark",
-                    ColorMode::Dark => "Light",
-                };
-                if Button::new(label).show(ui).clicked() {
-                    self.toggle_theme(ui.ctx());
-                }
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                centered_gallery_column(ui, |ui| {
+                    ui.add_space(18.0);
+                    ui.horizontal(|ui| {
+                        ui.heading("Tweeq for egui");
+                        let label = match self.mode {
+                            ColorMode::Light => "Dark",
+                            ColorMode::Dark => "Light",
+                        };
+                        if Button::new(label).show(ui).clicked() {
+                            self.toggle_theme(ui.ctx());
+                        }
+                    });
+                    self.gallery(ui);
+                    ui.add_space(40.0);
+                });
             });
-            egui::ScrollArea::vertical().show(ui, |ui| self.gallery(ui));
         });
 
         let mut floating_open = self.floating_open;
@@ -743,17 +766,39 @@ impl eframe::App for GalleryApp {
 }
 
 fn section(ui: &mut egui::Ui, title: &str) {
-    ui.add_space(18.0);
+    ui.add_space(32.0);
     ui.heading(title);
     ui.separator();
-    ui.add_space(5.0);
+    ui.add_space(12.0);
 }
 
 fn parameter_grid(ui: &mut egui::Ui, id: &str, contents: impl FnOnce(&mut egui::Ui)) {
     egui::Grid::new(id)
         .num_columns(2)
-        .spacing([18.0, 9.0])
+        .spacing([28.0, 14.0])
         .show(ui, contents);
+}
+
+fn centered_gallery_column(ui: &mut egui::Ui, contents: impl FnOnce(&mut egui::Ui)) {
+    const MAX_CONTENT_WIDTH: f32 = 820.0;
+    const MIN_SIDE_PADDING: f32 = 12.0;
+
+    let available_width = ui.available_width();
+    let content_width = (available_width - MIN_SIDE_PADDING * 2.0).clamp(0.0, MAX_CONTENT_WIDTH);
+    let side_padding = ((available_width - content_width) * 0.5).max(0.0);
+    let item_spacing_x = ui.spacing().item_spacing.x;
+
+    ui.scope(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        ui.horizontal(|ui| {
+            ui.add_space(side_padding);
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.x = item_spacing_x;
+                ui.set_width(content_width);
+                contents(ui);
+            });
+        });
+    });
 }
 
 fn row(ui: &mut egui::Ui, label: &str, contents: impl FnOnce(&mut egui::Ui)) {
