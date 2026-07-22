@@ -7,7 +7,10 @@
 
 use std::ops::RangeInclusive;
 
-use egui::{Color32, CornerRadius, Response, Sense, Stroke, StrokeKind, Ui, Vec2};
+use egui::{
+    Color32, CornerRadius, FontId, LayerId, Order, Pos2, Rect, Response, Sense, Stroke, StrokeKind,
+    Ui, Vec2,
+};
 use tweeq_core::{EditOperation, ParamId, ParamKind};
 
 use crate::{TweeqContext, TweeqTheme};
@@ -379,11 +382,55 @@ fn paint_timecode(
 
     if (response.hovered() || response.dragged())
         && let Some(scale) = highlighted_scale
+        && let Some(segment) = segments.iter().find(|segment| segment.scale == scale)
     {
-        egui::Tooltip::for_widget(response).show(|ui| {
-            ui.label(["Frames", "Secs", "Mins", "Hrs"][scale]);
-        });
+        paint_time_unit_label(ui, response, segment, scale, theme);
     }
+}
+
+fn paint_time_unit_label(
+    ui: &Ui,
+    response: &Response,
+    segment: &TimeSegment,
+    scale: usize,
+    theme: &TweeqTheme,
+) {
+    let painter = ui.ctx().layer_painter(LayerId::new(
+        Order::Tooltip,
+        response.id.with("time-unit-label"),
+    ));
+    let font = FontId::proportional(9.0);
+    let galley = painter.layout_no_wrap(
+        ["Frames", "Secs", "Mins", "Hrs"][scale].to_owned(),
+        font,
+        theme.text,
+    );
+    let size = galley.size() + Vec2::new(10.0, 6.0);
+    let screen = ui.ctx().content_rect();
+    let mut center = Pos2::new(
+        segment.rect.center().x,
+        segment.rect.top() - 5.0 - size.y * 0.5,
+    );
+    center.x = center.x.clamp(
+        screen.left() + size.x * 0.5 + 3.0,
+        screen.right() - size.x * 0.5 - 3.0,
+    );
+    if center.y - size.y * 0.5 < screen.top() + 3.0 {
+        center.y = segment.rect.bottom() + 5.0 + size.y * 0.5;
+    }
+    let label_rect = Rect::from_center_size(center, size);
+    painter.rect(
+        label_rect,
+        CornerRadius::same(theme.input_radius),
+        theme.surface,
+        Stroke::new(1.0, theme.border),
+        StrokeKind::Inside,
+    );
+    painter.galley(
+        label_rect.center() - galley.size() * 0.5,
+        galley,
+        theme.text,
+    );
 }
 
 #[derive(Debug, Clone)]

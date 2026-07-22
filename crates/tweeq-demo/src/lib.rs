@@ -32,6 +32,25 @@ const BEZIER: ParamId = ParamId::from_static("demo.bezier");
 const SHUFFLE: ParamId = ParamId::from_static("demo.shuffle");
 const COMPLEX: ParamId = ParamId::from_static("demo.complex");
 const TIMELINE: ParamId = ParamId::from_static("demo.timeline");
+const POINTER_LOCK_SETTING: ParamId = ParamId::from_static("demo.settings.pointer_lock");
+const NUMBER_MIN_SETTING: ParamId = ParamId::from_static("demo.settings.number_min");
+const NUMBER_MAX_SETTING: ParamId = ParamId::from_static("demo.settings.number_max");
+const NUMBER_BAR_SETTING: ParamId = ParamId::from_static("demo.settings.number_bar");
+const NUMBER_STEP_SETTING: ParamId = ParamId::from_static("demo.settings.number_step");
+const NUMBER_PRECISION_SETTING: ParamId = ParamId::from_static("demo.settings.number_precision");
+const NUMBER_BAR_ENABLED_SETTING: ParamId =
+    ParamId::from_static("demo.settings.number_bar_enabled");
+const NUMBER_STEP_ENABLED_SETTING: ParamId =
+    ParamId::from_static("demo.settings.number_step_enabled");
+const NUMBER_CLAMP_MIN_SETTING: ParamId = ParamId::from_static("demo.settings.number_clamp_min");
+const NUMBER_CLAMP_MAX_SETTING: ParamId = ParamId::from_static("demo.settings.number_clamp_max");
+const NUMBER_DISABLED_SETTING: ParamId = ParamId::from_static("demo.settings.number_disabled");
+const NUMBER_INVALID_SETTING: ParamId = ParamId::from_static("demo.settings.number_invalid");
+const ANGLE_SNAP_SETTING: ParamId = ParamId::from_static("demo.settings.angle_snap");
+const ANGLE_OFFSET_SETTING: ParamId = ParamId::from_static("demo.settings.angle_offset");
+const ANGLE_DISABLED_SETTING: ParamId = ParamId::from_static("demo.settings.angle_disabled");
+const ANGLE_INVALID_SETTING: ParamId = ParamId::from_static("demo.settings.angle_invalid");
+const RADIO_ANIMATED_SETTING: ParamId = ParamId::from_static("demo.settings.radio_animated");
 const FRUIT: &[&str] = &["Apple", "Banana", "Cherry", "Dragonfruit"];
 const COMMANDS: &[&str] = &["Reset viewport", "Toggle theme", "Export parameters"];
 
@@ -179,15 +198,21 @@ impl GalleryApp {
         self.tweeq.set_theme(theme);
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(
+        clippy::too_many_lines,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     fn gallery(&mut self, ui: &mut egui::Ui) {
         ui.add_space(10.0);
         ui.label("Interactive parameter gallery");
         ui.label("Shift: fast · Alt: fine · Q: snap · Enter: commit · Escape: cancel");
-        ui.checkbox(
+        Checkbox::new(
+            POINTER_LOCK_SETTING,
             &mut self.pointer_lock,
             "Try pointer lock for unbounded drag",
-        );
+        )
+        .show(ui, &mut self.tweeq);
 
         section(ui, "Numbers");
         parameter_grid(ui, "number-gallery", |ui| {
@@ -227,61 +252,123 @@ impl GalleryApp {
             });
         });
 
-        ui.collapsing("InputNumber parity controls", |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.checkbox(&mut self.number_bar_enabled, "bar");
-                ui.checkbox(&mut self.number_step_enabled, "step");
-                ui.checkbox(&mut self.number_clamp_min, "clamp min");
-                ui.checkbox(&mut self.number_clamp_max, "clamp max");
-                ui.checkbox(&mut self.number_disabled, "disabled");
-                ui.checkbox(&mut self.number_invalid, "invalid");
-            });
-            egui::Grid::new("number-parity-props")
-                .num_columns(4)
-                .show(ui, |ui| {
-                    ui.label("min");
-                    ui.add(egui::DragValue::new(&mut self.number_min).speed(0.1));
-                    ui.label("max");
-                    ui.add(egui::DragValue::new(&mut self.number_max).speed(0.1));
-                    ui.end_row();
-                    ui.label("bar origin");
-                    ui.add(egui::DragValue::new(&mut self.number_bar_origin).speed(0.1));
-                    ui.label("step");
-                    ui.add(egui::DragValue::new(&mut self.number_step).speed(0.01));
-                    ui.end_row();
-                    ui.label("precision");
-                    ui.add(egui::DragValue::new(&mut self.number_precision).range(0..=12));
-                    ui.end_row();
+        CollapsingPane::new("InputNumber parity controls")
+            .default_open(false)
+            .show(ui, |ui| {
+                InputGroup::show(ui, |ui| {
+                    Checkbox::new(
+                        NUMBER_BAR_ENABLED_SETTING,
+                        &mut self.number_bar_enabled,
+                        "bar",
+                    )
+                    .show(ui, &mut self.tweeq);
+                    Checkbox::new(
+                        NUMBER_STEP_ENABLED_SETTING,
+                        &mut self.number_step_enabled,
+                        "step",
+                    )
+                    .show(ui, &mut self.tweeq);
+                    Checkbox::new(
+                        NUMBER_CLAMP_MIN_SETTING,
+                        &mut self.number_clamp_min,
+                        "clamp min",
+                    )
+                    .show(ui, &mut self.tweeq);
+                    Checkbox::new(
+                        NUMBER_CLAMP_MAX_SETTING,
+                        &mut self.number_clamp_max,
+                        "clamp max",
+                    )
+                    .show(ui, &mut self.tweeq);
+                    Checkbox::new(
+                        NUMBER_DISABLED_SETTING,
+                        &mut self.number_disabled,
+                        "disabled",
+                    )
+                    .show(ui, &mut self.tweeq);
+                    Checkbox::new(NUMBER_INVALID_SETTING, &mut self.number_invalid, "invalid")
+                        .show(ui, &mut self.tweeq);
+                });
+                parameter_grid(ui, "number-parity-props", |ui| {
+                    row(ui, "min", |ui| {
+                        Number::new(NUMBER_MIN_SETTING, &mut self.number_min)
+                            .step(0.1)
+                            .precision(2)
+                            .width(100.0)
+                            .show(ui, &mut self.tweeq);
+                    });
+                    row(ui, "max", |ui| {
+                        Number::new(NUMBER_MAX_SETTING, &mut self.number_max)
+                            .step(0.1)
+                            .precision(2)
+                            .width(100.0)
+                            .show(ui, &mut self.tweeq);
+                    });
+                    row(ui, "bar origin", |ui| {
+                        Number::new(NUMBER_BAR_SETTING, &mut self.number_bar_origin)
+                            .step(0.1)
+                            .precision(2)
+                            .width(100.0)
+                            .show(ui, &mut self.tweeq);
+                    });
+                    row(ui, "step", |ui| {
+                        Number::new(NUMBER_STEP_SETTING, &mut self.number_step)
+                            .range(0.001..=10.0)
+                            .step(0.01)
+                            .precision(3)
+                            .width(100.0)
+                            .show(ui, &mut self.tweeq);
+                    });
+                    row(ui, "precision", |ui| {
+                        let mut precision = f64::from(self.number_precision);
+                        Number::new(NUMBER_PRECISION_SETTING, &mut precision)
+                            .range(0.0..=12.0)
+                            .step(1.0)
+                            .precision(0)
+                            .width(100.0)
+                            .show(ui, &mut self.tweeq);
+                        self.number_precision = precision.round().clamp(0.0, 12.0) as u8;
+                    });
                 });
 
-            let mut specimen = Number::new(NUMBER_LAB, &mut self.number_lab)
-                .min(self.number_min)
-                .max(self.number_max)
-                .clamp_min(self.number_clamp_min)
-                .clamp_max(self.number_clamp_max)
-                .precision(self.number_precision)
-                .enabled(!self.number_disabled)
-                .invalid(self.number_invalid)
-                .bar(if self.number_bar_enabled {
-                    NumberBar::Origin(self.number_bar_origin)
-                } else {
-                    NumberBar::Hidden
-                });
-            if self.number_step_enabled {
-                specimen = specimen.step(self.number_step.max(f64::EPSILON));
-            }
-            specimen.show(ui, &mut self.tweeq);
-            ui.weak("Focus: ↑/↓ · Shift+↑/↓: fast · Alt+↑/↓: fine (when step is off)");
-        });
+                let mut specimen = Number::new(NUMBER_LAB, &mut self.number_lab)
+                    .min(self.number_min)
+                    .max(self.number_max)
+                    .clamp_min(self.number_clamp_min)
+                    .clamp_max(self.number_clamp_max)
+                    .precision(self.number_precision)
+                    .enabled(!self.number_disabled)
+                    .invalid(self.number_invalid)
+                    .bar(if self.number_bar_enabled {
+                        NumberBar::Origin(self.number_bar_origin)
+                    } else {
+                        NumberBar::Hidden
+                    });
+                if self.number_step_enabled {
+                    specimen = specimen.step(self.number_step.max(f64::EPSILON));
+                }
+                specimen.show(ui, &mut self.tweeq);
+                ui.weak("Focus: ↑/↓ · Shift+↑/↓: fast · Alt+↑/↓: fine (when step is off)");
+            });
 
         section(ui, "Angles");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("snap");
-            ui.add(egui::DragValue::new(&mut self.angle_snap).speed(1.0));
-            ui.label("angle offset");
-            ui.add(egui::DragValue::new(&mut self.angle_offset).speed(1.0));
-            ui.checkbox(&mut self.angle_disabled, "disabled");
-            ui.checkbox(&mut self.angle_invalid, "invalid");
+        InputGroup::show(ui, |ui| {
+            Number::new(ANGLE_SNAP_SETTING, &mut self.angle_snap)
+                .prefix("snap ")
+                .step(1.0)
+                .precision(0)
+                .width(100.0)
+                .show(ui, &mut self.tweeq);
+            Number::new(ANGLE_OFFSET_SETTING, &mut self.angle_offset)
+                .prefix("offset ")
+                .step(1.0)
+                .precision(0)
+                .width(110.0)
+                .show(ui, &mut self.tweeq);
+            Checkbox::new(ANGLE_DISABLED_SETTING, &mut self.angle_disabled, "disabled")
+                .show(ui, &mut self.tweeq);
+            Checkbox::new(ANGLE_INVALID_SETTING, &mut self.angle_invalid, "invalid")
+                .show(ui, &mut self.tweeq);
         });
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
@@ -331,7 +418,8 @@ impl GalleryApp {
                 Radio::new(RADIO, &mut self.radio, &FRUIT[..3])
                     .animated(self.radio_animated)
                     .show(ui, &mut self.tweeq);
-                ui.checkbox(&mut self.radio_animated, "animate");
+                Checkbox::new(RADIO_ANIMATED_SETTING, &mut self.radio_animated, "animate")
+                    .show(ui, &mut self.tweeq);
             });
             row(ui, "Drum", |ui| {
                 Drum::new(DRUM, &mut self.drum, FRUIT).show(ui, &mut self.tweeq);
@@ -422,10 +510,13 @@ impl GalleryApp {
                 ui.label("Docking and split trees stay optional host integrations.");
             });
         ui.horizontal(|ui| {
-            if ui.button("Open floating pane").clicked() {
+            if Button::new("Open floating pane").show(ui).clicked() {
                 self.floating_open = true;
             }
-            if ui.button("Open command palette (Ctrl+P)").clicked() {
+            if Button::new("Open command palette (Ctrl+P)")
+                .show(ui)
+                .clicked()
+            {
                 self.palette_open = true;
             }
             ui.weak(&self.command_status);
@@ -434,11 +525,13 @@ impl GalleryApp {
         ui.add_space(20.0);
         ui.separator();
         ui.weak("Ctrl/Command-click or Shift-click numeric fields for simultaneous selection.");
-        ui.collapsing("Recent edit events", |ui| {
-            for event in self.event_log.iter().rev().take(10) {
-                ui.monospace(event);
-            }
-        });
+        CollapsingPane::new("Recent edit events")
+            .default_open(false)
+            .show(ui, |ui| {
+                for event in self.event_log.iter().rev().take(10) {
+                    ui.monospace(event);
+                }
+            });
     }
 
     fn apply_event(&mut self, event: EditEvent) {
@@ -506,6 +599,16 @@ impl GalleryApp {
                 CHECKBOX => self.checkbox = value,
                 SWITCH => self.switch = value,
                 TOGGLE => self.toggle = value,
+                POINTER_LOCK_SETTING => self.pointer_lock = value,
+                NUMBER_BAR_ENABLED_SETTING => self.number_bar_enabled = value,
+                NUMBER_STEP_ENABLED_SETTING => self.number_step_enabled = value,
+                NUMBER_CLAMP_MIN_SETTING => self.number_clamp_min = value,
+                NUMBER_CLAMP_MAX_SETTING => self.number_clamp_max = value,
+                NUMBER_DISABLED_SETTING => self.number_disabled = value,
+                NUMBER_INVALID_SETTING => self.number_invalid = value,
+                ANGLE_DISABLED_SETTING => self.angle_disabled = value,
+                ANGLE_INVALID_SETTING => self.angle_invalid = value,
+                RADIO_ANIMATED_SETTING => self.radio_animated = value,
                 _ => {}
             },
             ParamValue::String(value) => match id {
@@ -523,13 +626,22 @@ impl GalleryApp {
         }
     }
 
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn set_number(&mut self, id: ParamId, value: f64) {
         match id {
             OPACITY => self.opacity = value.clamp(0.0, 1.0),
             ROTATION => self.rotation = value.clamp(-180.0, 180.0),
             OFFSET_X => self.offset_x = value,
             NUMBER_LAB => self.number_lab = value,
+            NUMBER_MIN_SETTING => self.number_min = value,
+            NUMBER_MAX_SETTING => self.number_max = value,
+            NUMBER_BAR_SETTING => self.number_bar_origin = value,
+            NUMBER_STEP_SETTING => self.number_step = value,
+            NUMBER_PRECISION_SETTING => {
+                self.number_precision = value.round().clamp(0.0, 12.0) as u8;
+            }
+            ANGLE_SNAP_SETTING => self.angle_snap = value,
+            ANGLE_OFFSET_SETTING => self.angle_offset = value,
             ROTARY => self.rotary = value,
             ANGLE => self.angle = value,
             candidate if candidate == VECTOR.child(1) => self.vector[0] = value,
@@ -580,7 +692,7 @@ impl eframe::App for GalleryApp {
                     ColorMode::Light => "Dark",
                     ColorMode::Dark => "Light",
                 };
-                if ui.button(label).clicked() {
+                if Button::new(label).show(ui).clicked() {
                     self.toggle_theme(ui.ctx());
                 }
             });

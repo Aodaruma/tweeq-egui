@@ -713,20 +713,20 @@ fn paint_translate_overlay(
 fn paint_link_icon(ui: &Ui, rect: Rect, color: Color32, linked: bool) {
     let painter = ui.painter();
     let center = rect.center();
-    let stroke = Stroke::new(1.4, color);
-    let loop_size = Vec2::new(8.0, 6.0);
-    for offset in [-5.0, 5.0] {
+    let loop_stroke = Stroke::new(1.25, color);
+    let loop_size = Vec2::new(7.0, 5.5);
+    if linked {
+        painter.line_segment(
+            [center + Vec2::new(-2.6, 0.0), center + Vec2::new(2.6, 0.0)],
+            Stroke::new(1.0, color),
+        );
+    }
+    for offset in [-6.0, 6.0] {
         painter.rect_stroke(
             Rect::from_center_size(center + Vec2::new(offset, 0.0), loop_size),
             CornerRadius::same(3),
-            stroke,
+            loop_stroke,
             StrokeKind::Middle,
-        );
-    }
-    if linked {
-        painter.line_segment(
-            [center + Vec2::new(-4.0, 0.0), center + Vec2::new(4.0, 0.0)],
-            Stroke::new(2.0, color),
         );
     }
 }

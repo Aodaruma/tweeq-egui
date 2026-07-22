@@ -5,8 +5,8 @@
 )]
 
 use egui::{
-    Align2, Color32, CornerRadius, FontId, Id, Key, LayerId, Mesh, Order, PopupCloseBehavior, Pos2,
-    Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2,
+    Color32, CornerRadius, FontId, Id, Key, LayerId, Mesh, Order, PopupCloseBehavior, Pos2, Rect,
+    Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2,
 };
 use tweeq_core::{EditOperation, EditSessionId, ParamId, ParamKind};
 
@@ -37,21 +37,6 @@ enum ColorDragMode {
     Blue,
 }
 
-impl ColorDragMode {
-    const fn label(self) -> &'static str {
-        match self {
-            Self::SaturationValue => "S / V",
-            Self::Hue => "Hue",
-            Self::Saturation => "Saturation",
-            Self::Value => "Value",
-            Self::Alpha => "Alpha",
-            Self::Red => "Red",
-            Self::Green => "Green",
-            Self::Blue => "Blue",
-        }
-    }
-}
-
 #[derive(Clone)]
 struct ColorState {
     captured: [f32; 4],
@@ -70,7 +55,7 @@ impl ColorState {
             drag_mode: ColorDragMode::SaturationValue,
             drag_origin: Pos2::ZERO,
             color_space: ColorSpace::Hsv,
-            hex_buffer: rgba_to_hex(value),
+            hex_buffer: rgba_to_opaque_hex(value),
         }
     }
 }
@@ -121,15 +106,67 @@ impl<'a> ColorInput<'a> {
         let mut state = ui
             .data(|data| data.get_temp::<ColorState>(state_id))
             .unwrap_or_else(|| ColorState::new(*self.value));
+        let popup_id = ui.make_persistent_id(("tweeq-color-popup", self.id.as_u64()));
+        let before_inline = *self.value;
+        let inline = ui
+            .scope(|ui| {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                ui.horizontal(|ui| {
+                    let (pad_rect, mut pad_response) = ui.allocate_exact_size(
+                        Vec2::splat(theme.input_height),
+                        Sense::click_and_drag(),
+                    );
+                    pad_response = pad_response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
+                    paint_color_pad(ui, pad_rect, &pad_response, *self.value, &theme);
 
-        let (rect, mut response) = ui.allocate_exact_size(
-            Vec2::new(self.width, theme.input_height),
-            Sense::click_and_drag(),
-        );
-        response = response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
-        paint_color_field(ui, rect, &response, *self.value, &theme);
+                    let alpha_width = if self.alpha { 50.0 } else { 0.0 };
+                    let hex_width = (self.width - theme.input_height - alpha_width).max(48.0);
+                    let hex_response = ui.add_sized(
+                        [hex_width, theme.input_height],
+                        egui::TextEdit::singleline(&mut state.hex_buffer)
+                            .id_source(state_id.with("inline-hex"))
+                            .font(egui::TextStyle::Monospace)
+                            .margin(egui::Margin::symmetric(7, 2)),
+                    );
+                    if hex_response.changed()
+                        && let Some(mut parsed) = parse_hex(&state.hex_buffer)
+                    {
+                        if state.hex_buffer.trim().trim_start_matches('#').len() == 6 {
+                            parsed[3] = self.value[3];
+                        }
+                        *self.value = parsed;
+                    }
+                    if !hex_response.has_focus() && !pad_response.dragged() {
+                        state.hex_buffer = rgba_to_opaque_hex(*self.value);
+                    }
 
-        if response.drag_started() {
+                    let alpha_response = if self.alpha {
+                        let mut alpha_percent = self.value[3] * 100.0;
+                        let response = ui.add_sized(
+                            [alpha_width, theme.input_height],
+                            egui::DragValue::new(&mut alpha_percent)
+                                .range(0.0..=100.0)
+                                .speed(1.0)
+                                .suffix("%")
+                                .max_decimals(0),
+                        );
+                        if response.changed() {
+                            self.value[3] = (alpha_percent / 100.0).clamp(0.0, 1.0);
+                        }
+                        Some(response)
+                    } else {
+                        None
+                    };
+                    (pad_response, hex_response, alpha_response)
+                })
+                .inner
+            })
+            .inner;
+        let (mut pad_response, hex_response, alpha_response) = inline;
+        let inline_changed = colors_differ(before_inline, *self.value);
+
+        if pad_response.drag_started() {
+            egui::Popup::close_id(ui.ctx(), popup_id);
             let modifiers = ui.input(|input| input.modifiers);
             context.activate_selection(
                 self.id,
@@ -138,20 +175,22 @@ impl<'a> ColorInput<'a> {
                 modifiers.command,
             );
             state.captured = *self.value;
-            state.drag_origin = response.interact_pointer_pos().unwrap_or(rect.center());
+            state.drag_origin = pad_response
+                .interact_pointer_pos()
+                .unwrap_or(pad_response.rect.center());
             state.session = Some(context.start_edit(self.id, ParamKind::Color));
         }
 
-        if response.dragged() {
+        if pad_response.dragged() {
             state.drag_mode = color_drag_mode(ui, self.alpha);
-            let total = response.total_drag_delta().unwrap_or_default();
+            let total = pad_response.total_drag_delta().unwrap_or_default();
             *self.value = state.captured;
             apply_drag(self.value, state.drag_mode, total, self.alpha);
-            state.hex_buffer = rgba_to_hex(*self.value);
+            state.hex_buffer = rgba_to_opaque_hex(*self.value);
             if let Some(session) = state.session {
                 context.update_edit(session, EditOperation::SetColor(*self.value));
             }
-            response.mark_changed();
+            pad_response.mark_changed();
             paint_drag_overlay(
                 ui,
                 state_id,
@@ -163,15 +202,23 @@ impl<'a> ColorInput<'a> {
             ui.ctx().request_repaint();
         }
 
-        if response.drag_stopped()
+        if pad_response.drag_stopped()
             && let Some(session) = state.session.take()
         {
             context.finish_edit(session, true);
         }
 
+        if inline_changed {
+            context.immediate_edit(
+                self.id,
+                ParamKind::Color,
+                EditOperation::SetColor(*self.value),
+            );
+        }
+
         let popup_before = *self.value;
-        let popup = egui::Popup::from_toggle_button_response(&response)
-            .id(ui.make_persistent_id(("tweeq-color-popup", self.id.as_u64())))
+        let popup = egui::Popup::from_toggle_button_response(&pad_response)
+            .id(popup_id)
             .gap(4.0)
             .width(PICKER_WIDTH + 20.0)
             .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
@@ -180,8 +227,8 @@ impl<'a> ColorInput<'a> {
                 show_picker(ui, self.value, &mut state, self.alpha, &theme)
             });
         if popup.is_some() && colors_differ(*self.value, popup_before) {
-            response.mark_changed();
-            state.hex_buffer = rgba_to_hex(*self.value);
+            pad_response.mark_changed();
+            state.hex_buffer = rgba_to_opaque_hex(*self.value);
             context.immediate_edit(
                 self.id,
                 ParamKind::Color,
@@ -189,44 +236,37 @@ impl<'a> ColorInput<'a> {
             );
         }
 
+        let mut response = pad_response.union(hex_response);
+        if let Some(alpha_response) = alpha_response {
+            response = response.union(alpha_response);
+        }
+        if inline_changed || colors_differ(popup_before, *self.value) {
+            response.mark_changed();
+        }
         ui.data_mut(|data| data.insert_temp(state_id, state));
         response
     }
 }
 
-fn paint_color_field(
-    ui: &Ui,
-    rect: Rect,
-    response: &Response,
-    value: [f32; 4],
-    theme: &TweeqTheme,
-) {
-    let background = if response.hovered() {
-        theme.input_hover
-    } else {
-        theme.input
-    };
-    ui.painter().rect(
-        rect,
-        CornerRadius::same(theme.input_radius),
-        background,
-        Stroke::NONE,
-        StrokeKind::Inside,
-    );
-    let swatch = Rect::from_min_max(rect.min, Pos2::new(rect.left() + 54.0, rect.bottom()));
-    paint_checkerboard(ui, swatch.shrink(1.0), 6.0);
+fn paint_color_pad(ui: &Ui, rect: Rect, response: &Response, value: [f32; 4], theme: &TweeqTheme) {
+    paint_checkerboard(ui, rect.shrink(1.0), 5.0);
     ui.painter().rect_filled(
-        swatch.shrink(1.0),
+        rect.shrink(1.0),
         CornerRadius::same(theme.input_radius.saturating_sub(1)),
         color32(value),
     );
-    let label = rgba_to_hex(value);
-    ui.painter().text(
-        Pos2::new(swatch.right() + 9.0, rect.center().y),
-        Align2::LEFT_CENTER,
-        label,
-        FontId::monospace(11.0),
-        theme.text,
+    ui.painter().rect_stroke(
+        rect,
+        CornerRadius::same(theme.input_radius),
+        Stroke::new(
+            1.0,
+            if response.hovered() || response.has_focus() || response.dragged() {
+                theme.accent
+            } else {
+                theme.border
+            },
+        ),
+        StrokeKind::Inside,
     );
 }
 
@@ -494,63 +534,212 @@ fn paint_drag_overlay(
     let painter = ui
         .ctx()
         .layer_painter(LayerId::new(Order::Foreground, id.with("drag-overlay")));
-    let screen = ui.ctx().content_rect();
-    let mut min = Pos2::new(origin.x - 92.0, origin.y - 116.0);
-    min.x = min.x.clamp(screen.left() + 8.0, screen.right() - 192.0);
-    min.y = min.y.clamp(screen.top() + 8.0, screen.bottom() - 146.0);
-    let overlay = Rect::from_min_size(min, Vec2::new(184.0, 138.0));
-    painter.rect(
-        overlay,
-        CornerRadius::same(8),
-        theme.surface.gamma_multiply(0.96),
+    let hsva = rgba_to_hsva(value);
+    let tweak_width = PICKER_WIDTH;
+
+    if matches!(
+        mode,
+        ColorDragMode::SaturationValue
+            | ColorDragMode::Hue
+            | ColorDragMode::Saturation
+            | ColorDragMode::Value
+    ) {
+        let pad = Rect::from_min_size(
+            Pos2::new(
+                origin.x - hsva[1] * tweak_width,
+                origin.y - (1.0 - hsva[2]) * tweak_width,
+            ),
+            Vec2::splat(tweak_width),
+        );
+        let pad_opacity = if mode == ColorDragMode::SaturationValue {
+            1.0
+        } else {
+            0.1
+        };
+        paint_sv_mesh_with_opacity(&painter, pad, hsva[0], pad_opacity);
+        painter.rect_stroke(
+            pad,
+            CornerRadius::same(theme.input_radius),
+            Stroke::new(1.0, theme.border.gamma_multiply(pad_opacity)),
+            StrokeKind::Inside,
+        );
+        paint_hue_wheel(
+            &painter,
+            origin,
+            tweak_width * 0.5 - 4.0,
+            hsva[0],
+            if mode == ColorDragMode::Hue { 1.0 } else { 0.1 },
+        );
+    }
+
+    if matches!(
+        mode,
+        ColorDragMode::Saturation
+            | ColorDragMode::Value
+            | ColorDragMode::Alpha
+            | ColorDragMode::Red
+            | ColorDragMode::Green
+            | ColorDragMode::Blue
+    ) {
+        paint_drag_slider(&painter, origin, tweak_width, value, hsva, mode, theme);
+    }
+
+    paint_overlay_label(
+        &painter,
+        ui.ctx().content_rect(),
+        origin,
+        value,
+        hsva,
+        mode,
+        theme,
+    );
+
+    let preview_radius = theme.input_height * 0.9;
+    painter.circle_filled(origin, preview_radius, theme.input);
+    painter.circle_filled(
+        origin,
+        preview_radius,
+        color32(if mode == ColorDragMode::Alpha {
+            value
+        } else {
+            [value[0], value[1], value[2], 1.0]
+        }),
+    );
+    painter.circle_stroke(origin, preview_radius, Stroke::new(1.0, theme.border));
+}
+
+fn paint_hue_wheel(painter: &egui::Painter, center: Pos2, radius: f32, hue: f32, opacity: f32) {
+    let segments = 72_u32;
+    for index in 0..segments {
+        let t0 = index as f32 / segments as f32;
+        let t1 = (index + 1) as f32 / segments as f32;
+        let angle0 = (t0 - hue) * std::f32::consts::TAU - std::f32::consts::FRAC_PI_2;
+        let angle1 = (t1 - hue) * std::f32::consts::TAU - std::f32::consts::FRAC_PI_2;
+        let start = center + Vec2::angled(angle0) * radius;
+        let end = center + Vec2::angled(angle1) * radius;
+        painter.line_segment(
+            [start, end],
+            Stroke::new(
+                4.0,
+                color32(hsva_to_rgba([t0, 1.0, 1.0, 1.0])).gamma_multiply(opacity),
+            ),
+        );
+    }
+    for index in 0..6 {
+        let angle = index as f32 / 6.0 * std::f32::consts::TAU - std::f32::consts::FRAC_PI_2;
+        painter.circle_filled(
+            center + Vec2::angled(angle) * (radius - 1.0),
+            1.8,
+            Color32::BLACK.gamma_multiply(opacity),
+        );
+    }
+}
+
+fn paint_drag_slider(
+    painter: &egui::Painter,
+    origin: Pos2,
+    width: f32,
+    value: [f32; 4],
+    hsva: [f32; 4],
+    mode: ColorDragMode,
+    theme: &TweeqTheme,
+) {
+    let channel = match mode {
+        ColorDragMode::Saturation => hsva[1],
+        ColorDragMode::Value => hsva[2],
+        ColorDragMode::Alpha => value[3],
+        ColorDragMode::Red => value[0],
+        ColorDragMode::Green => value[1],
+        ColorDragMode::Blue => value[2],
+        _ => return,
+    };
+    let vertical = mode == ColorDragMode::Value;
+    let rect = if vertical {
+        Rect::from_min_size(
+            Pos2::new(
+                origin.x - SLIDER_HEIGHT * 0.5,
+                origin.y - (1.0 - channel) * width,
+            ),
+            Vec2::new(SLIDER_HEIGHT, width),
+        )
+    } else {
+        Rect::from_min_size(
+            Pos2::new(origin.x - channel * width, origin.y - SLIDER_HEIGHT * 0.5),
+            Vec2::new(width, SLIDER_HEIGHT),
+        )
+    };
+
+    if mode == ColorDragMode::Alpha {
+        paint_checkerboard_with(painter, rect, 4.0);
+    }
+    if vertical {
+        paint_vertical_gradient_with(painter, rect, |t| {
+            color32(hsva_to_rgba([hsva[0], hsva[1], 1.0 - t, hsva[3]]))
+        });
+    } else {
+        paint_horizontal_gradient_with(painter, rect, |t| match mode {
+            ColorDragMode::Saturation => color32(hsva_to_rgba([hsva[0], t, hsva[2], hsva[3]])),
+            ColorDragMode::Alpha => color32([value[0], value[1], value[2], t]),
+            ColorDragMode::Red => color32([t, value[1], value[2], value[3]]),
+            ColorDragMode::Green => color32([value[0], t, value[2], value[3]]),
+            ColorDragMode::Blue => color32([value[0], value[1], t, value[3]]),
+            _ => Color32::TRANSPARENT,
+        });
+    }
+    painter.rect_stroke(
+        rect,
+        CornerRadius::same(theme.input_radius),
         Stroke::new(1.0, theme.border),
         StrokeKind::Inside,
     );
+}
 
-    let hsva = rgba_to_hsva(value);
-    let pad = Rect::from_min_size(overlay.min + Vec2::new(10.0, 26.0), Vec2::new(164.0, 76.0));
-    paint_sv_mesh_with(&painter, pad, hsva[0]);
-    let marker = Pos2::new(
-        egui::lerp(pad.left()..=pad.right(), hsva[1]),
-        egui::lerp(pad.bottom()..=pad.top(), hsva[2]),
+fn paint_overlay_label(
+    painter: &egui::Painter,
+    screen: Rect,
+    origin: Pos2,
+    value: [f32; 4],
+    hsva: [f32; 4],
+    mode: ColorDragMode,
+    theme: &TweeqTheme,
+) {
+    let text = match mode {
+        ColorDragMode::SaturationValue => {
+            format!(
+                "Sat  {:>5.1}%    Val  {:>5.1}%",
+                hsva[1] * 100.0,
+                hsva[2] * 100.0
+            )
+        }
+        ColorDragMode::Hue => format!("Hue  {:>5.1}°", hsva[0] * 360.0),
+        ColorDragMode::Saturation => format!("Sat  {:>5.1}%", hsva[1] * 100.0),
+        ColorDragMode::Value => format!("Val  {:>5.1}%", hsva[2] * 100.0),
+        ColorDragMode::Alpha => format!("α  {:>5.1}%", value[3] * 100.0),
+        ColorDragMode::Red => format!("R  {:>3.0}", value[0] * 255.0),
+        ColorDragMode::Green => format!("G  {:>3.0}", value[1] * 255.0),
+        ColorDragMode::Blue => format!("B  {:>3.0}", value[2] * 255.0),
+    };
+    let font = FontId::monospace(10.0);
+    let galley = painter.layout_no_wrap(text, font, theme.text);
+    let size = galley.size() + Vec2::new(12.0, 8.0);
+    let mut center = Pos2::new(origin.x, origin.y - theme.input_height * 1.7 - size.y * 0.5);
+    center.x = center.x.clamp(
+        screen.left() + size.x * 0.5 + 4.0,
+        screen.right() - size.x * 0.5 - 4.0,
     );
-    painter.circle_stroke(
-        marker,
-        4.5,
-        Stroke::new(2.0, contrast_color(color32(value))),
+    center.y = center.y.clamp(
+        screen.top() + size.y * 0.5 + 4.0,
+        screen.bottom() - size.y * 0.5 - 4.0,
     );
-
-    let hue = Rect::from_min_size(overlay.min + Vec2::new(10.0, 108.0), Vec2::new(164.0, 10.0));
-    paint_horizontal_gradient_with(&painter, hue, |t| color32(hsva_to_rgba([t, 1.0, 1.0, 1.0])));
-    let hue_x = egui::lerp(hue.left()..=hue.right(), hsva[0]);
-    painter.line_segment(
-        [Pos2::new(hue_x, hue.top()), Pos2::new(hue_x, hue.bottom())],
-        Stroke::new(2.0, theme.text),
+    let rect = Rect::from_center_size(center, size);
+    painter.rect(
+        rect,
+        CornerRadius::same(theme.input_radius),
+        theme.surface,
+        Stroke::new(1.0, theme.border),
+        StrokeKind::Inside,
     );
-
-    painter.text(
-        Pos2::new(overlay.left() + 10.0, overlay.top() + 13.0),
-        Align2::LEFT_CENTER,
-        format!(
-            "{}  H {:03.0}  S {:02.0}  V {:02.0}",
-            mode.label(),
-            hsva[0] * 360.0,
-            hsva[1] * 100.0,
-            hsva[2] * 100.0
-        ),
-        FontId::monospace(10.0),
-        theme.text,
-    );
-    painter.circle_filled(
-        Pos2::new(origin.x, origin.y),
-        6.0,
-        color32(value).to_opaque(),
-    );
-    painter.circle_stroke(
-        Pos2::new(origin.x, origin.y),
-        6.0,
-        Stroke::new(1.5, contrast_color(color32(value))),
-    );
+    painter.galley(rect.center() - galley.size() * 0.5, galley, theme.text);
 }
 
 fn paint_sv_mesh(ui: &Ui, rect: Rect, hue: f32) {
@@ -558,6 +747,10 @@ fn paint_sv_mesh(ui: &Ui, rect: Rect, hue: f32) {
 }
 
 fn paint_sv_mesh_with(painter: &egui::Painter, rect: Rect, hue: f32) {
+    paint_sv_mesh_with_opacity(painter, rect, hue, 1.0);
+}
+
+fn paint_sv_mesh_with_opacity(painter: &egui::Painter, rect: Rect, hue: f32, opacity: f32) {
     let subdivisions = 16_u32;
     let mut mesh = Mesh::default();
     for y in 0..=subdivisions {
@@ -570,7 +763,7 @@ fn paint_sv_mesh_with(painter: &egui::Painter, rect: Rect, hue: f32) {
             );
             mesh.colored_vertex(
                 position,
-                color32(hsva_to_rgba([hue, saturation, value, 1.0])),
+                color32(hsva_to_rgba([hue, saturation, value, 1.0])).gamma_multiply(opacity),
             );
             if x < subdivisions && y < subdivisions {
                 let row = subdivisions + 1;
@@ -578,6 +771,27 @@ fn paint_sv_mesh_with(painter: &egui::Painter, rect: Rect, hue: f32) {
                 mesh.add_triangle(top_left, top_left + 1, top_left + row);
                 mesh.add_triangle(top_left + 1, top_left + row, top_left + row + 1);
             }
+        }
+    }
+    painter.add(Shape::mesh(mesh));
+}
+
+fn paint_vertical_gradient_with(
+    painter: &egui::Painter,
+    rect: Rect,
+    color_at: impl Fn(f32) -> Color32,
+) {
+    let subdivisions = 24_u32;
+    let mut mesh = Mesh::default();
+    for index in 0..=subdivisions {
+        let t = index as f32 / subdivisions as f32;
+        let y = egui::lerp(rect.top()..=rect.bottom(), t);
+        mesh.colored_vertex(Pos2::new(rect.left(), y), color_at(t));
+        mesh.colored_vertex(Pos2::new(rect.right(), y), color_at(t));
+        if index < subdivisions {
+            let base = index * 2;
+            mesh.add_triangle(base, base + 1, base + 2);
+            mesh.add_triangle(base + 1, base + 2, base + 3);
         }
     }
     painter.add(Shape::mesh(mesh));
@@ -609,6 +823,10 @@ fn paint_horizontal_gradient_with(
 }
 
 fn paint_checkerboard(ui: &Ui, rect: Rect, size: f32) {
+    paint_checkerboard_with(ui.painter(), rect, size);
+}
+
+fn paint_checkerboard_with(painter: &egui::Painter, rect: Rect, size: f32) {
     let rows = (rect.height() / size).ceil() as i32;
     let columns = (rect.width() / size).ceil() as i32;
     for row in 0..rows {
@@ -623,7 +841,7 @@ fn paint_checkerboard(ui: &Ui, rect: Rect, size: f32) {
             } else {
                 Color32::from_gray(125)
             };
-            ui.painter().rect_filled(cell, 0, color);
+            painter.rect_filled(cell, 0, color);
         }
     }
 }
@@ -714,6 +932,11 @@ fn rgba_to_hex(value: [f32; 4]) -> String {
             color.a()
         )
     }
+}
+
+fn rgba_to_opaque_hex(value: [f32; 4]) -> String {
+    let color = color32(value);
+    format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b())
 }
 
 fn parse_hex(text: &str) -> Option<[f32; 4]> {

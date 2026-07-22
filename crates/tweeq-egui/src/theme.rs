@@ -100,10 +100,14 @@ impl TweeqTheme {
         visuals.window_fill = self.surface;
         visuals.override_text_color = Some(self.text);
         visuals.selection.bg_fill = self.accent;
+        visuals.selection.stroke = Stroke::new(1.0, contrast_text(self.accent));
         visuals.widgets.inactive.bg_fill = self.input;
         visuals.widgets.hovered.bg_fill = self.input_hover;
         visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, self.text);
         visuals.widgets.active.bg_fill = self.accent;
+        visuals.widgets.active.fg_stroke = Stroke::new(1.0, contrast_text(self.accent));
+        visuals.widgets.open.bg_fill = self.accent;
+        visuals.widgets.open.fg_stroke = Stroke::new(1.0, contrast_text(self.accent));
         visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, self.border);
         visuals.widgets.inactive.corner_radius = CornerRadius::same(self.input_radius);
         visuals.widgets.hovered.corner_radius = CornerRadius::same(self.input_radius);
@@ -113,6 +117,17 @@ impl TweeqTheme {
         style.spacing.item_spacing.x = self.related_gap;
         context.set_style_of(egui_theme, style);
         context.set_theme(egui_theme);
+    }
+}
+
+fn contrast_text(background: Color32) -> Color32 {
+    let luminance = 0.299 * f32::from(background.r())
+        + 0.587 * f32::from(background.g())
+        + 0.114 * f32::from(background.b());
+    if luminance > 150.0 {
+        Color32::BLACK
+    } else {
+        Color32::WHITE
     }
 }
 

@@ -174,12 +174,30 @@ impl<'a> Dropdown<'a> {
         let theme = context.theme().clone();
         let mut inner_response = None;
         let scoped = ui.add_enabled_ui(self.enabled, |ui| {
+            ui.visuals_mut().selection.stroke = Stroke::new(1.0, contrast_text(theme.accent));
+            ui.visuals_mut().widgets.active.fg_stroke =
+                Stroke::new(1.0, contrast_text(theme.accent));
+            ui.visuals_mut().widgets.open.fg_stroke = Stroke::new(1.0, contrast_text(theme.accent));
             let inner = egui::ComboBox::from_id_salt(("tweeq-dropdown", self.id.as_u64()))
                 .width(self.width)
                 .selected_text(self.value.as_str())
                 .show_ui(ui, |ui| {
+                    // The global Tweeq theme pins ordinary label text to
+                    // `theme.text`. Pop-up selections need egui's widget-state
+                    // foreground instead so an active blue row can use white.
+                    ui.visuals_mut().override_text_color = None;
                     for option in self.options {
-                        ui.selectable_value(self.value, (*option).to_owned(), *option);
+                        let selected = self.value == option;
+                        let color = if selected {
+                            contrast_text(theme.accent)
+                        } else {
+                            theme.text
+                        };
+                        ui.selectable_value(
+                            self.value,
+                            (*option).to_owned(),
+                            egui::RichText::new(*option).color(color),
+                        );
                     }
                 });
             inner_response = Some(inner.response);

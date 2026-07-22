@@ -30,16 +30,16 @@ keyboard経路を大幅に更新しましたが、複数選択・式入力・OS�
 | `InputCheckbox` | `Checkbox` | 近似（高） | font glyphを廃止してcheckをPainterで描画。click/swipe、真偽shortcut、disabled/invalidに加え、press/drag中のOFF/ON円overlayを実装。連結角、multi-select表示が残る |
 | `InputSwitch` | `Switch` | 近似（高） | pill描画、click/swipe、真偽shortcut、disabled/invalid、およびpress/drag中に横へ伸びるhandleを実装。連結属性とtransition curveの細部が残る |
 | `InputRadio` | `Radio` | 近似（高） | segmented indicator、drag選択、矢印navigation、disabled/invalid、選択indicatorの補間animationを実装。`.animated(false)`でanimationを無効化できる。icon-only/縦responsive、tooltip/labelizerが残る |
-| `InputDropdown` | `Dropdown` | 近似 | disabled/invalid、上下キー、簡易type-aheadを実装。fuzzy検索、viewport scroll、icons、prefix/suffix、popup visual/focus復帰が残る |
+| `InputDropdown` | `Dropdown` | 近似 | disabled/invalid、上下キー、簡易type-aheadを実装。light modeでもaccent背景上の選択文字をcontrast色に固定。fuzzy検索、viewport scroll、icons、prefix/suffix、popup visual/focus復帰が残る |
 | `InputDrum` | `Drum` | 近似（高） | 中央mark・隣接peek・ticks・fade、40px/step drag、wheel、矢印、type-ahead、prefix/suffixを実装。Pointer Lock、慣性、wrap方針が残る |
 | `InputString` | `StringInput` | 近似 | edit session、Enter commit、Escape cancel、width/disabled/invalidを実装。default reset、validator公開API、theme/font/align、IME、multi-edit式が残る |
 | `InputGroup` | `InputGroup` | 近似 | horizontal groupingのみ。子へstart/middle/endを付ける連結角、vertical direction、2px group gapが同等でない |
 | `InputPosition` | `Position` | 近似（高） | compact `Translate + Vector`合成、min/max/step、disabled/invalidを実装。responsive幅と単一Undo sessionを要検証 |
 | `InputTranslate` | `Translate` | 近似（高） | 小型grid button、全画面grid/value label、X/Y・0/1拘束、Q snap、矢印、pointer lockを実装。scale補間animationとOS別fallbackが残る |
 | `InputVec` | `Vector<N>` | 近似（高） | X/Y/Z/W label、min/max、step、compact layout、disabled/invalidを実装。成分別stepと複合Undo単位が残る |
-| `InputSize` | `Size` | 近似（高） | 左右2ループと中央線でchain iconを描画し、link時のみ中央線を表示。比率維持、ゼロ除算保護、disabled/invalidを実装。外部比率変更と単一edit sessionを要検証 |
-| `InputTime` | `Timecode` | 近似（高） | Painter製時計icon、表示文字列から測定したH/M/S/F hit領域、drag中の単位lock、blur、右クリックのSMPTE/Frames切替、単位別drag、Q snap、range/disabled/invalidを実装。式とdrop-frameが残る |
-| `InputColor` | `ColorInput` | 近似（高） | 専用SV pad、Hue/Alpha slider、HSV/RGB/HEX切替、hex入力、swatches、checkerboardを実装。dragではS/V、Shift/H/F、S、V、Alt/A、R/G/Bを切替え、foreground HSV overlayを表示する。複数色のVue同等relative edit、preset外部注入、disabled/invalidが残る |
+| `InputSize` | `Size` | 近似（高） | 左右の小型loopを離して描き、link時だけ細い中央線で接続する。比率維持、ゼロ除算保護、disabled/invalidを実装。外部比率変更と単一edit sessionを要検証 |
+| `InputTime` | `Timecode` | 近似（高） | Painter製時計icon、表示文字列から測定したH/M/S/F hit領域、drag中の単位lock、blur、右クリックのSMPTE/Frames切替、単位別drag、Q snap、range/disabled/invalidを実装。hover単位は対象digit直上に小型・改行なしで描画する。式とdrop-frameが残る |
+| `InputColor` | `ColorInput` | 近似（高） | 24px正方形swatch、独立HEX TextEdit、alpha入力、専用SV/Hue/Alpha picker、HSV/RGB/HEX切替、swatches、checkerboardを実装。dragではS/V、Shift/H/F、S、V、Alt/A、R/G/Bを切替え、原版同様にdrag originへSV pad・Hue ring・channel slider・preview・短い値labelを重ねる。複数色のVue同等relative edit、preset外部注入、disabled/invalidが残る |
 | `InputCubicBezier` | `CubicBezier` | 近似（高） | compact curve + popup picker、非hover時の白curve、control line/handle、Q snap、矢印、4数値代替、disabled/invalidを実装。presetと複合edit sessionの整合が残る |
 | `InputShuffle` | `Shuffle` | 近似 | 文字buttonを1〜6のPainter製dice faceへ変更し、seed更新ごとに面も変化。Rustはseed付き数値range専用で、Vueのgeneric `generate(prev)`と任意型の変更eventとはAPIが異なる |
 | `InputComplex` | `ComplexInput` | 未対応 | Vueはschema-driven object editor、Rustの同名型は実数/虚数の2 Numberで別用途。Rust側は名称と設計の再検討が必要 |
@@ -85,7 +85,7 @@ keyboard経路を大幅に更新しましたが、複数選択・式入力・OS�
 | `Viewport` | `Viewport2D` | 近似 | Vueのroot reset/theme/scroll containerとは役割が異なる。Rust側のviewport helper境界を明文化する必要あり |
 | `CommandPalette` | `CommandPalette` | 近似 | query filterと実行は存在。fuzzy ranking、keyboard selection、command metadata、modal visual/focusが不足 |
 | `TitleBar` | demo shellのみ | 未対応 | custom decoration、window controls、menu統合はライブラリ中核外としてexample化する方針 |
-| `App` | `tweeq-demo::GalleryApp` | 近似 | gallery shellは存在。Vue referenceとのside-by-side state coverage、WASM entry、automated screenshot baselineが不足 |
+| `App` | `tweeq-demo::GalleryApp` | 近似 | gallery内の操作部品は公開Tweeq componentへ統一。Vue referenceとのside-by-side state coverage、WASM entry、automated screenshot baselineが不足 |
 | `Markdown` | なし | 未対応 | 汎用Markdownは移植対象外候補。demo docsは別crate/host責務にする |
 | `MonacoEditor` | `CodeInput` adapter | 近似 | Monaco完全移植は対象外候補。host editor接続interfaceとexampleを用意する |
 
@@ -132,6 +132,26 @@ prototype中は互換性のため型名を残しますが、stable前には次�
 - Checkboxのcheck、Sizeのchain、Cubic Bézierの白curve、Shuffle diceをnative描画で確認。
 - active中だけ見えるoverlay/handle伸長は実装コードとstate testを基準に確認。自動化でpress中の
   screenshotを固定するinteraction harnessは今後追加する。
+- Colorのswatchを正方形化し、HEX欄を選択して直接入力してもpickerが開かないことを確認。
+- Timeのhover単位が対象digit直上へ1行表示されること、light mode Dropdownの選択文字が
+  accent背景上で白になることをWindows native galleryで確認。
+- demo内のtheme、parameter settings、pane/palette起動を含む操作widgetをTweeq componentへ統一。
+
+## 公開APIの安定度
+
+基本入力の利用形は引き続き `ParamId + &mut value + builder + show(ui, &mut TweeqContext)` で、
+今回の修正に破壊的な公開API変更はありません。`Radio::animated`、`TimeDisplay`、Colorの
+幅・alpha設定などは追加APIです。そのためNumber、Angle、Size、Time、Color等を利用する
+アプリ側コードは、現時点では主に見た目と操作の微調整に入っています。
+
+ただしstable APIを固定する前に、次の境界はPhase 6以降で確定する必要があります。
+
+1. 現在の複素数用`ComplexInput`のrenameと、Vue相当schema editorの型設計。
+2. 複合inputを1回のUndoにまとめるedit session/event API。
+3. Color preset注入と複数選択relative color operation。
+4. `ParameterGrid`、Popover、Tooltip、Menuの公開API。
+
+以上をstable前の設計ゲートに残す前提なら、次フェーズへ進めて問題ありません。
 
 ## 次の優先順位
 

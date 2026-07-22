@@ -49,9 +49,13 @@ sessionの実機確認です。
 - Switchのpress/drag中にhandleを横へ伸長。
 - Buttonのfocus/pressed expansionを無効化し、外形寸法を固定。
 - Radioの選択indicatorを補間し、`.animated(bool)`で切替可能にした。
-- Sizeのchainを左右2ループと、link時だけ現れる中央線へ変更。
-- Timeの時計icon、実表示に一致するhit領域、drag単位lock、blur、SMPTE/Frames menuを追加。
-- Colorを専用SV/Hue/Alpha picker、HSV/RGB/HEX、swatches、相対drag overlayへ置換。
+- Sizeのchainを離れた左右2ループと、link時だけ現れる細い中央線へ変更。
+- Timeの時計icon、実表示に一致するhit領域、drag単位lock、blur、SMPTE/Frames menuを追加し、
+  hover単位を対象digit直上へ小型・改行なしで描画。
+- Colorを正方形swatch・独立HEX入力・alpha入力、専用SV/Hue/Alpha picker、
+  HSV/RGB/HEX、swatchesへ再構成。相対drag overlayは原版のSV pad、Hue ring、
+  channel slider、円形preview、短い値labelのレイヤー構造へ置換。
+- light mode Dropdownのaccent背景上の選択文字を白へ固定。
 - Cubic Bézierの非hover curveを白、Shuffleをseed連動のdice faceへ変更。
 - Timelineをexclusive editにし、他のNumber選択・focusへ操作を伝播させない。
 
@@ -62,7 +66,9 @@ renameとschema editor新設を監査項目にしました。
 ## 比較用アプリ
 
 Rust galleryにはInputNumberの全propsとInputAngleのsnap/offset/stateを変更できる欄を
-追加しました。また、VuePressのnavigationや説明を除いたVue単体ページを追加しました。
+追加しました。theme切替、設定値、pane/palette起動を含む全操作部品もTweeq libraryの
+componentへ統一しています。また、VuePressのnavigationや説明を除いたVue単体ページを
+追加しました。
 
 ```sh
 cargo run -p tweeq-demo
@@ -83,6 +89,8 @@ Vue単体ページは`http://localhost:5173/port-reference.html`で開きます�
 - in-app browserでVue単体ページをdesktop幅で目視
 - 追加feedback passでColor popup/swatches/relative drag、Time右クリック切替とblur、
   Timelineのexclusive editをWindows nativeで操作確認
+- 正方形Color swatch、HEXの独立focus/入力、Size chainの分離、Time hover単位の位置と
+  no-wrap、light mode Dropdownの選択文字contrastをWindows nativeで確認
 
 active overlayはdrag中だけ表示されるため、自動screenshot baselineは今後、合成
 `RawInput`または専用interaction harnessで固定します。
