@@ -48,7 +48,7 @@ impl<'a> Dropdown<'a> {
             id,
             value,
             options,
-            width: 180.0,
+            width: 240.0,
         }
     }
 

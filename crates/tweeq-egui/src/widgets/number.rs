@@ -70,7 +70,7 @@ impl<'a> Number<'a> {
             prefix: "",
             suffix: "",
             default: None,
-            width: 180.0,
+            width: 240.0,
             show_bar: true,
             enabled: true,
             pointer_policy: PointerPolicy::Disabled,

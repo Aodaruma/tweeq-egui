@@ -4,8 +4,8 @@
 
 この文書群は、TweeqのVue実装をRustへ再設計し、最終的に
 `tweeq-egui`としてcrates.ioへ公開するための基準を定めるものです。
-Phase 3までの中核入力を実装し、native/WASMでcheck可能な対話型ギャラリーを
-用意しています。Vue版は比較基準として維持しています。
+Phase 5の比較評価まで実施し、native/WASMでcheck可能な対話型ギャラリーを
+用意しています。Vue版は、切替ブロッカーが解消するまで比較基準として維持します。
 
 - 作業ブランチ: `codex/rust-egui-port`
 - 参照実装: Vue版 `main`
@@ -22,7 +22,7 @@ Phase 3までの中核入力を実装し、native/WASMでcheck可能な対話型
 | 2 | 完了 | Number縦切り、型付き編集イベント、選択・gesture・validation |
 | 3 | 完了 | P1/P2入力の基礎実装とパラメーターギャラリー |
 | 4 | 試作完了 | 高度入力、ワークスペースprimitive、P4 adapter |
-| 5 | 未着手 | Vue比較、互換性判断、切替準備 |
+| 5 | 評価完了 | Vue比較、互換性分類、公開/切替チェックリスト（切替はNo-Go） |
 
 ## 目標
 
@@ -68,6 +68,8 @@ Phase 3までの中核入力を実装し、native/WASMでcheck可能な対話型
 - [Phase 2検証記録](./phase-2-number.md): Number縦切りの操作と既知制限
 - [Phase 3検証記録](./phase-3-gallery.md): 中核入力ギャラリーと互換性上の残課題
 - [Phase 4検証記録](./phase-4-workspace.md): 高度入力、workspace primitive、adapter境界
+- [互換性評価](./compatibility-report.md): Vue実測比較、移植/代替/制限/ブロッカー判定
+- [公開・切替チェックリスト](./release-checklist.md): crates.io previewとmain完全Rust化の条件
 
 ## 「完全移植」の定義
 

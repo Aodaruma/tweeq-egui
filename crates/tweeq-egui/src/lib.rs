@@ -1,4 +1,20 @@
 //! Tweeq parameter-tuning widgets for egui.
+//!
+//! The host owns parameter values and keeps one [`TweeqContext`]. Widgets use
+//! stable [`ParamId`] values and emit edit sessions suitable for Undo/Redo.
+//!
+//! ```no_run
+//! use tweeq_egui::{Number, ParamId, TweeqContext};
+//!
+//! fn opacity_ui(ui: &mut egui::Ui, context: &mut TweeqContext, opacity: &mut f64) {
+//!     Number::new(ParamId::from_static("opacity"), opacity)
+//!         .range(0.0..=1.0)
+//!         .step(0.01)
+//!         .snap(0.1)
+//!         .precision(3)
+//!         .show(ui, context);
+//! }
+//! ```
 
 #![forbid(unsafe_code)]
 

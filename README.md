@@ -20,6 +20,16 @@ parity and release gates.
 See the [Rust port design](./docs/rust-port/README.md) for the architecture,
 component inventory, migration stages, and crates.io release plan.
 
+Run the interactive native gallery with:
+
+```sh
+cargo run -p tweeq-demo
+```
+
+The current [compatibility report](./docs/rust-port/compatibility-report.md)
+explains which interactions are ready, which use egui-native alternatives, and
+why the Vue implementation must not be removed yet.
+
 Tweeq is a collection of [Vue.js](https://vuejs.org) components for design tools. The components range from fundamental UIs such as numeric sliders, color pickers, to advanced and niche controls like a cubic-bezier editor. It supports various micro-interactions suitable for creative professionals.
 
 It has been continuously developed by the visual artist [Baku Hashimoto](https://baku89.com).

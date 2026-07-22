@@ -15,6 +15,9 @@ Phase 3時点では基盤と`Number`に加え、P1/P2入力を対話型ギャラ
 視覚効果との完全一致ではありません。個別の差異とPhase 5での判定は
 [Phase 3検証記録](./phase-3-gallery.md)を参照してください。
 
+Phase 5のVue実測後の判定は[互換性評価](./compatibility-report.md)に集約しています。
+この表の「実装先が存在する」ことと、main切替に必要なUX互換性の達成は区別します。
+
 ## 基盤
 
 | Vue/TypeScript | Rust移植先 | 優先度 | 方針・受入条件 |

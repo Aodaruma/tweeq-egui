@@ -52,7 +52,7 @@ impl TweeqTheme {
             text_muted: Color32::from_rgb(100, 100, 100),
             accent: Color32::from_rgb(0, 82, 255),
             accent_hover: Color32::from_rgb(0, 64, 214),
-            input: Color32::from_rgb(242, 242, 244),
+            input: Color32::from_rgb(239, 240, 243),
             input_hover: Color32::from_rgb(233, 233, 236),
             border: Color32::from_rgb(214, 214, 220),
             input_height: 24.0,

@@ -19,7 +19,7 @@ impl<'a> Rotary<'a> {
             value,
             snap: 15.0,
             angle_offset: 0.0,
-            size: 52.0,
+            size: 24.0,
         }
     }
 
@@ -100,17 +100,19 @@ impl<'a> Rotary<'a> {
             [center, center + direction * radius * 0.78],
             Stroke::new(2.0, theme.accent),
         );
-        ui.painter().text(
-            center,
-            Align2::CENTER_CENTER,
-            format!("{:.0}°", *self.value),
-            FontId::monospace(10.0),
-            if response.hovered() {
-                theme.text
-            } else {
-                Color32::TRANSPARENT
-            },
-        );
+        if self.size >= 36.0 {
+            ui.painter().text(
+                center,
+                Align2::CENTER_CENTER,
+                format!("{:.0}°", *self.value),
+                FontId::monospace(10.0),
+                if response.hovered() {
+                    theme.text
+                } else {
+                    Color32::TRANSPARENT
+                },
+            );
+        }
         context.put_scalar_drag_state(self.id, state);
         response
     }

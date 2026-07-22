@@ -3,6 +3,21 @@
 //! Values remain owned by the host application. Tweeq emits explicit edit
 //! sessions so applications can implement preview, multi-edit, and undo without
 //! storing mutable references across UI frames.
+//!
+//! ```
+//! use tweeq_core::{NumberConstraints, ParamId};
+//!
+//! let opacity = ParamId::from_static("opacity");
+//! let constraints = NumberConstraints {
+//!     min: Some(0.0),
+//!     max: Some(1.0),
+//!     step: Some(0.01),
+//!     precision: 3,
+//!     ..NumberConstraints::default()
+//! };
+//! assert_eq!(opacity, ParamId::from_static("opacity"));
+//! assert_eq!(constraints.validate(1.2, true).value, 1.0);
+//! ```
 
 #![forbid(unsafe_code)]
 
