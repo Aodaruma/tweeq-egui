@@ -1,4 +1,6 @@
-use egui::{Color32, CornerRadius, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2};
+use egui::{
+    Color32, CornerRadius, LayerId, Order, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2,
+};
 use tweeq_core::{EditOperation, EditSessionId, ParamId, ParamKind};
 
 use crate::{TweeqContext, TweeqTheme};
@@ -72,7 +74,12 @@ impl<'a> Button<'a> {
                 ui.spacing().interact_size.y,
             ));
         ui.scope(|ui| {
-            ui.visuals_mut().widgets.hovered.bg_fill = if self.subtle {
+            let widgets = &mut ui.visuals_mut().widgets;
+            widgets.inactive.expansion = 0.0;
+            widgets.hovered.expansion = 0.0;
+            widgets.active.expansion = 0.0;
+            widgets.open.expansion = 0.0;
+            widgets.hovered.bg_fill = if self.subtle {
                 subtle_hover
             } else {
                 fill.gamma_multiply(0.82)
@@ -213,8 +220,8 @@ impl<'a> Checkbox<'a> {
         );
         response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
-        let changed = boolean_interaction(ui, &response, self.id, self.value, self.enabled);
-        if changed {
+        let interaction = boolean_interaction(ui, &response, self.id, self.value, self.enabled);
+        if interaction.changed {
             response.mark_changed();
             emit_boolean(context, self.id, *self.value);
         }
@@ -229,6 +236,9 @@ impl<'a> Checkbox<'a> {
             self.invalid,
             &theme,
         );
+        if interaction.active {
+            paint_boolean_overlay(ui, self.id, box_rect, interaction.preview, &theme);
+        }
         if !self.label.is_empty() {
             let color = if self.enabled {
                 theme.text
@@ -304,8 +314,8 @@ impl<'a> Switch<'a> {
         );
         response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
-        let changed = boolean_interaction(ui, &response, self.id, self.value, self.enabled);
-        if changed {
+        let interaction = boolean_interaction(ui, &response, self.id, self.value, self.enabled);
+        if interaction.changed {
             response.mark_changed();
             emit_boolean(context, self.id, *self.value);
         }
@@ -318,6 +328,7 @@ impl<'a> Switch<'a> {
             *self.value,
             self.enabled,
             self.invalid,
+            interaction.active,
             &theme,
         );
         if !self.label.is_empty() {
@@ -488,15 +499,26 @@ impl InputGroup {
     }
 }
 
+#[derive(Clone, Copy)]
+struct BooleanInteraction {
+    changed: bool,
+    active: bool,
+    preview: bool,
+}
+
 fn boolean_interaction(
     ui: &Ui,
     response: &Response,
     id: ParamId,
     value: &mut bool,
     enabled: bool,
-) -> bool {
+) -> BooleanInteraction {
     if !enabled {
-        return false;
+        return BooleanInteraction {
+            changed: false,
+            active: false,
+            preview: *value,
+        };
     }
     let before = *value;
     if response.clicked() {
@@ -535,7 +557,11 @@ fn boolean_interaction(
             *value = !*value;
         }
     }
-    before != *value
+    BooleanInteraction {
+        changed: before != *value,
+        active: response.is_pointer_button_down_on() || response.dragged(),
+        preview: *value,
+    }
 }
 
 fn paint_checkbox(
@@ -581,20 +607,64 @@ fn paint_checkbox(
         StrokeKind::Inside,
     );
     if checked {
-        ui.painter().text(
-            rect.center(),
-            egui::Align2::CENTER_CENTER,
-            "✓",
-            egui::FontId::proportional(theme.input_height * 0.72),
-            if enabled {
-                contrast_text(fill)
-            } else {
-                theme.background
-            },
-        );
+        let color = if enabled {
+            contrast_text(fill)
+        } else {
+            theme.background
+        };
+        paint_check_mark(ui.painter(), rect.center(), 1.8, color);
     }
 }
 
+fn paint_boolean_overlay(
+    ui: &Ui,
+    id: ParamId,
+    rect: egui::Rect,
+    preview: bool,
+    theme: &TweeqTheme,
+) {
+    let painter = ui.ctx().layer_painter(LayerId::new(
+        Order::Foreground,
+        egui::Id::new(("tweeq-boolean-overlay", id.as_u64())),
+    ));
+    let offset = theme.input_height * 1.05;
+    let radius = theme.input_height * 0.32;
+    let off = rect.center() - Vec2::new(offset, 0.0);
+    let on = rect.center() + Vec2::new(offset, 0.0);
+
+    for (center, selected) in [(off, !preview), (on, preview)] {
+        painter.circle_filled(center, radius + 2.0, theme.background);
+        if selected {
+            painter.circle_filled(center, radius, theme.accent);
+        } else {
+            painter.circle_stroke(center, radius, Stroke::new(1.5, theme.border));
+        }
+    }
+    paint_check_mark(
+        &painter,
+        on,
+        1.35,
+        if preview {
+            contrast_text(theme.accent)
+        } else {
+            theme.border
+        },
+    );
+}
+
+fn paint_check_mark(painter: &egui::Painter, center: egui::Pos2, width: f32, color: Color32) {
+    let stroke = Stroke::new(width, color);
+    painter.line_segment(
+        [center + Vec2::new(-4.2, 0.0), center + Vec2::new(-1.2, 3.0)],
+        stroke,
+    );
+    painter.line_segment(
+        [center + Vec2::new(-1.2, 3.0), center + Vec2::new(4.8, -3.5)],
+        stroke,
+    );
+}
+
+#[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
 fn paint_switch(
     ui: &Ui,
     rect: egui::Rect,
@@ -602,6 +672,7 @@ fn paint_switch(
     checked: bool,
     enabled: bool,
     invalid: bool,
+    tweaking: bool,
     theme: &TweeqTheme,
 ) {
     let fill = if !enabled {
@@ -633,15 +704,20 @@ fn paint_switch(
         outline,
         StrokeKind::Outside,
     );
-    let radius = (rect.height() - 8.0) * 0.5;
-    let center_x = if checked {
-        rect.right() - 4.0 - radius
+    let handle_height = rect.height() - 8.0;
+    let handle_width = handle_height + if tweaking { 4.0 } else { 0.0 };
+    let left = if checked {
+        rect.right() - 4.0 - handle_width
     } else {
-        rect.left() + 4.0 + radius
+        rect.left() + 4.0
     };
-    ui.painter().circle_filled(
-        egui::pos2(center_x, rect.center().y),
-        radius,
+    let handle = egui::Rect::from_min_size(
+        egui::pos2(left, rect.center().y - handle_height * 0.5),
+        Vec2::new(handle_width, handle_height),
+    );
+    ui.painter().rect_filled(
+        handle,
+        CornerRadius::same(255),
         if checked && enabled {
             theme.background
         } else {

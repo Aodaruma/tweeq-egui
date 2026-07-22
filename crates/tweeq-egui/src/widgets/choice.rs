@@ -20,6 +20,7 @@ pub struct Radio<'a> {
     width: f32,
     enabled: bool,
     invalid: bool,
+    animated: bool,
 }
 
 impl<'a> Radio<'a> {
@@ -31,6 +32,7 @@ impl<'a> Radio<'a> {
             width: 240.0,
             enabled: true,
             invalid: false,
+            animated: true,
         }
     }
 
@@ -49,6 +51,13 @@ impl<'a> Radio<'a> {
     #[must_use]
     pub const fn invalid(mut self, invalid: bool) -> Self {
         self.invalid = invalid;
+        self
+    }
+
+    /// Enables the sliding active indicator used by the Vue component.
+    #[must_use]
+    pub const fn animated(mut self, animated: bool) -> Self {
+        self.animated = animated;
         self
     }
 
@@ -90,12 +99,23 @@ impl<'a> Radio<'a> {
             }
         }
 
+        let target_index = option_index(self.value, self.options) as f32;
+        let indicator_index = if self.animated {
+            ui.ctx().animate_value_with_time(
+                response.id.with("tweeq-radio-indicator"),
+                target_index,
+                0.18,
+            )
+        } else {
+            target_index
+        };
         paint_radio(
             ui,
             rect,
             &response,
             self.value,
             self.options,
+            indicator_index,
             self.enabled,
             self.invalid,
             &theme,
@@ -419,6 +439,7 @@ fn paint_radio(
     response: &Response,
     value: &str,
     options: &[&str],
+    indicator_index: f32,
     enabled: bool,
     invalid: bool,
     theme: &TweeqTheme,
@@ -439,6 +460,20 @@ fn paint_radio(
         return;
     }
     let width = rect.width() / options.len() as f32;
+    let indicator = egui::Rect::from_min_size(
+        egui::pos2(rect.left() + width * indicator_index, rect.top()),
+        egui::vec2(width, rect.height()),
+    )
+    .shrink(0.5);
+    ui.painter().rect_filled(
+        indicator,
+        CornerRadius::same(theme.input_radius),
+        if response.dragged() {
+            theme.accent_hover
+        } else {
+            theme.accent
+        },
+    );
     let pointer = ui.input(|input| input.pointer.hover_pos());
     for (index, option) in options.iter().enumerate() {
         let segment = egui::Rect::from_min_max(
@@ -447,20 +482,11 @@ fn paint_radio(
         );
         let active = *option == value;
         let hovered = response.hovered() && pointer.is_some_and(|p| segment.contains(p));
-        if active || hovered {
-            let fill = if active {
-                if hovered || response.dragged() {
-                    theme.accent_hover
-                } else {
-                    theme.accent
-                }
-            } else {
-                theme.input_hover
-            };
+        if hovered && !active {
             ui.painter().rect_filled(
                 segment.shrink(0.5),
                 CornerRadius::same(theme.input_radius),
-                fill,
+                theme.input_hover,
             );
         }
         ui.painter().text(
