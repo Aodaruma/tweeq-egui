@@ -5,6 +5,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vuepress dev docs",
+		"dev:reference": "vite --config vite.reference.config.ts --open /port-reference.html",
+		"build:reference": "vite build --config vite.reference.config.ts",
 		"build:vite": "vite build",
 		"build:doc": "vuepress build docs",
 		"build": "rm -rf lib && npm run build:vite",
